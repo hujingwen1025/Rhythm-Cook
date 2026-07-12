@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>厨房节奏大师 - Kitchen Rhythm Master</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+    html, body { width:100%; height:100%; overflow:hidden; font-family:'Fredoka','PingFang SC','Microsoft YaHei',sans-serif; background:#1a1a2e; }
+
+    :root {
+      --wall-color:#F5E6D3; --wall-dark:#E8D5C0; --tile-line:#D4BFA0;
+      --counter-color:#8B6F47; --counter-light:#A0825A; --counter-dark:#6B5237;
+      --accent:#E8753E; --accent-light:#F4A261; --accent-dark:#C75A2A;
+      --hit-zone-color:#FFD700; --beat-demo:#5B9BF5; --beat-demo-glow:rgba(91,155,245,0.6);
+      --beat-user:#FF8C42; --beat-user-glow:rgba(255,140,66,0.6);
+      --perfect-color:#4CAF50; --good-color:#FFC107; --miss-color:#F44336;
+      --text-light:#FFF8F0;
+    }
+
+    #game { position:relative; width:100vw; height:100vh; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; }
+
+    /* Kitchen Background */
+    .kitchen-bg { position:absolute; inset:0; z-index:0; overflow:hidden; }
+    .kitchen-wall { position:absolute; top:0; left:0; right:0; height:75%;
+      background:repeating-linear-gradient(0deg,transparent 0,transparent 78px,var(--tile-line) 78px,var(--tile-line) 80px),
+        repeating-linear-gradient(90deg,transparent 0,transparent 78px,var(--tile-line) 78px,var(--tile-line) 80px),
+        linear-gradient(135deg,var(--wall-color) 0%,var(--wall-dark) 100%); }
+    .kitchen-counter { position:absolute; bottom:0; left:0; right:0; height:25%;
+      background:linear-gradient(180deg,var(--counter-light) 0%,var(--counter-color) 30%,var(--counter-dark) 100%);
+      box-shadow:0 -4px 12px rgba(0,0,0,0.2); }
+    .kitchen-counter::before { content:''; position:absolute; top:0; left:0; right:0; height:8px; background:var(--counter-dark); box-shadow:inset 0 -2px 4px rgba(0,0,0,0.3); }
+    .kitchen-window { position:absolute; top:8%; right:3%; width:180px; height:140px;
+      background:linear-gradient(180deg,#B3E5FC 0%,#81D4FA 50%,#4FC3F7 100%);
+      border:6px solid #8B6F47; border-radius:8px 8px 0 0; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:1; }
+    .kitchen-window::before { content:''; position:absolute; top:0; bottom:0; left:50%; width:4px; background:#8B6F47; transform:translateX(-50%); }
+    .kitchen-window::after { content:''; position:absolute; left:0; right:0; top:50%; height:4px; background:#8B6F47; transform:translateY(-50%); }
+    .utensil-rack { position:absolute; top:5%; left:3%; display:flex; gap:18px; z-index:1; opacity:0.7; }
+    .utensil { font-size:28px; filter:drop-shadow(2px 2px 2px rgba(0,0,0,0.2)); }
+    .steam { position:absolute; bottom:20%; left:15%; width:40px; height:40px; border-radius:50%;
+      background:rgba(255,255,255,0.15); filter:blur(8px); animation:steam-rise 4s ease-in-out infinite; z-index:1; }
+    .steam:nth-child(2) { left:75%; animation-delay:1.5s; }
+    .steam:nth-child(3) { left:45%; animation-delay:2.8s; width:30px; height:30px; }
+    @keyframes steam-rise { 0%{transform:translateY(0) scale(1);opacity:0} 20%{opacity:0.5} 100%{transform:translateY(-200px) scale(2);opacity:0} }
+
+    /* HUD */
+    .hud { position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between;
+      padding:10px 24px; background:linear-gradient(180deg,rgba(61,43,31,0.9) 0%,rgba(61,43,31,0.7) 100%);
+      backdrop-filter:blur(6px); color:var(--text-light); gap:16px; flex-wrap:wrap; }
+    .hud-item { display:flex; flex-direction:column; align-items:center; gap:2px; }
+    .hud-label { font-size:11px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; }
+    .hud-value { font-size:22px; font-weight:700; line-height:1; }
+    .hud-score .hud-value { color:#FFD700; }
+    .hud-level .hud-value { color:var(--accent-light); }
+    .hud-combo .hud-value { color:#FF6B6B; transition:transform 0.2s; }
+    .hud-combo.bump .hud-value { transform:scale(1.4); }
+    .health-bar-container { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:120px; }
+    .health-bar { width:120px; height:10px; background:rgba(255,255,255,0.2); border-radius:5px; overflow:hidden; }
+    .health-fill { height:100%; background:linear-gradient(90deg,#4CAF50 0%,#8BC34A 50%,#FFC107 75%,#F44336 100%); border-radius:5px; transition:width 0.3s ease; width:100%; }
+    .progress-dots { display:flex; gap:6px; align-items:center; }
+    .progress-dot { width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,0.2); border:2px solid rgba(255,255,255,0.4); transition:all 0.3s; }
+    .progress-dot.completed { background:var(--accent-light); border-color:var(--accent); box-shadow:0 0 8px var(--accent-light); }
+    .progress-dot.current { border-color:#FFD700; animation:pulse-dot 1s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+
+    /* Game Body */
+    .game-body { position:relative; z-index:5; flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+    /* Chef Demo */
+    .chef-demo { flex:0 0 30%; min-height:160px; display:flex; align-items:center; justify-content:center; gap:16px; padding:8px 24px; position:relative; transition:opacity 0.4s,filter 0.4s; }
+    .chef-demo.dimmed { opacity:0.4; filter:grayscale(0.5); }
+    .demo-frame { display:flex; align-items:center; gap:16px; background:rgba(255,248,240,0.85); border:3px solid var(--accent); border-radius:16px; padding:8px 16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); max-width:600px; width:100%; position:relative; }
+    .demo-label { position:absolute; top:-12px; left:16px; background:var(--accent); color:white; font-size:12px; font-weight:600; padding:2px 12px; border-radius:10px; white-space:nowrap; }
+    .chef-character { flex:0 0 auto; width:70px; height:90px; position:relative; }
+    .chef-character svg { width:100%; height:100%; transition:transform 0.15s; }
+    .chef-character.cutting svg { animation:chef-bounce 0.25s ease; }
+    @keyframes chef-bounce { 0%{transform:scale(1) rotate(0)} 40%{transform:scale(1.1) rotate(-3deg)} 100%{transform:scale(1) rotate(0)} }
+    .demo-content { flex:1; display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .demo-food-wrap { flex:1; display:flex; align-items:center; justify-content:center; min-height:50px; position:relative; }
+    .demo-food-wrap svg { max-width:280px; width:100%; max-height:60px; height:auto; }
+    .demo-beat-track { height:36px; position:relative; overflow:hidden; border-radius:8px; background:linear-gradient(180deg,rgba(0,0,0,0.1) 0%,rgba(0,0,0,0.05) 100%); border:1px solid rgba(0,0,0,0.1); }
+
+    /* Play Area */
+    .play-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 24px; position:relative; transition:opacity 0.4s; }
+    .play-area.dimmed { opacity:0.5; }
+    .food-stage { flex:1; display:flex; align-items:center; justify-content:center; width:100%; position:relative; overflow:visible; }
+    .food-container { width:80%; max-width:700px; position:relative; transition:transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94); display:flex; align-items:center; justify-content:center; }
+    .food-container.offscreen-right { transform:translateX(160%); }
+    .food-container.center { transform:translateX(0); }
+    .food-container.offscreen-left { transform:translateX(-160%); }
+    .food-svg-wrap { position:relative; width:100%; display:flex; align-items:center; justify-content:center; }
+    .food-svg-wrap svg { width:100%; height:auto; max-height:200px; filter:drop-shadow(0 8px 16px rgba(0,0,0,0.2)); }
+    .food-pulse { animation:food-pulse 0.2s ease-out; }
+    @keyframes food-pulse { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+
+    /* Knife */
+    .knife-container { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:55px; height:110px; pointer-events:none; z-index:12; opacity:0; transition:opacity 0.3s, left 0.18s cubic-bezier(0.34,1.56,0.64,1), top 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+    .knife-container.visible { opacity:1; }
+    .knife-svg { width:100%; height:100%; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3)); transform-origin:50% 90%; }
+    .knife-container.cut-h .knife-svg { animation:knife-slash-h 0.35s ease-out; }
+    .knife-container.cut-v .knife-svg { animation:knife-slash-v 0.35s ease-out; }
+    @keyframes knife-slash-h {
+      0% { transform:translate(20px,-55px) rotate(40deg) scale(1.15); }
+      25% { transform:translate(-18px,18px) rotate(-18deg) scale(0.92); }
+      55% { transform:translate(-6px,6px) rotate(-6deg) scale(1); }
+      100% { transform:translate(0,0) rotate(0deg) scale(1); }
+    }
+    @keyframes knife-slash-v {
+      0% { transform:translate(40px,-25px) rotate(45deg) scale(1.15); }
+      25% { transform:translate(-22px,10px) rotate(-12deg) scale(0.92); }
+      55% { transform:translate(-8px,4px) rotate(-4deg) scale(1); }
+      100% { transform:translate(0,0) rotate(0deg) scale(1); }
+    }
+
+    /* Knife slash effect - vertical (for horizontal foods) */
+    .knife-slash { position:absolute; top:-10%; bottom:-10%; width:4px;
+      background:linear-gradient(180deg,transparent 0%,rgba(255,255,255,0.9) 15%,rgba(220,220,220,1) 50%,rgba(255,255,255,0.9) 85%,transparent 100%);
+      box-shadow:0 0 12px rgba(255,255,255,0.6); border-radius:2px; pointer-events:none; z-index:10;
+      animation:knife-flash 0.35s ease-out forwards; }
+    @keyframes knife-flash { 0%{transform:scaleY(0) rotate(8deg);opacity:0} 30%{transform:scaleY(1.1) rotate(8deg);opacity:1} 100%{transform:scaleY(1) rotate(8deg);opacity:0} }
+
+    /* Knife slash effect - horizontal (for vertical foods) */
+    .knife-slash-h { position:absolute; left:-5%; right:-5%; height:4px;
+      background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.9) 15%,rgba(220,220,220,1) 50%,rgba(255,255,255,0.9) 85%,transparent 100%);
+      box-shadow:0 0 12px rgba(255,255,255,0.6); border-radius:2px; pointer-events:none; z-index:10;
+      animation:knife-flash-h 0.35s ease-out forwards; }
+    @keyframes knife-flash-h { 0%{transform:scaleX(0);opacity:0} 30%{transform:scaleX(1.1);opacity:1} 100%{transform:scaleX(1);opacity:0} }
+
+    /* Particles */
+    .particle { position:absolute; width:8px; height:8px; border-radius:50%; pointer-events:none; z-index:11; animation:particle-fly 0.5s ease-out forwards; }
+    @keyframes particle-fly { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0} }
+
+    /* Beat Track */
+    .beat-track { flex:0 0 70px; width:80%; max-width:700px; margin:0 auto 12px; position:relative; overflow:hidden; border-radius:12px;
+      background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.08) 100%); border:2px solid rgba(0,0,0,0.1); box-shadow:inset 0 2px 6px rgba(0,0,0,0.1); }
+    .hit-zone { position:absolute; top:0; bottom:0; left:12%; width:4px;
+      background:linear-gradient(180deg,var(--hit-zone-color),#FFA000); box-shadow:0 0 16px var(--hit-zone-color); z-index:3; animation:hit-zone-glow 1s ease-in-out infinite; }
+    @keyframes hit-zone-glow { 0%,100%{box-shadow:0 0 12px var(--hit-zone-color)} 50%{box-shadow:0 0 24px var(--hit-zone-color),0 0 8px var(--hit-zone-color)} }
+    .hit-zone-label { position:absolute; left:12%; bottom:-20px; transform:translateX(-50%); font-size:10px; color:var(--hit-zone-color); font-weight:600; white-space:nowrap; opacity:0.7; }
+    .beat { position:absolute; top:50%; width:36px; height:36px; transform:translate(-50%,-50%); z-index:2; transition:opacity 0.2s; }
+    .beat-inner { width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:white; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+    .beat.demo .beat-inner { background:radial-gradient(circle,var(--beat-demo) 30%,#3A7BD5 100%); box-shadow:0 0 12px var(--beat-demo-glow),0 2px 8px rgba(0,0,0,0.2); }
+    .beat.user .beat-inner { background:radial-gradient(circle,var(--beat-user) 30%,var(--accent-dark) 100%); box-shadow:0 0 12px var(--beat-user-glow),0 2px 8px rgba(0,0,0,0.2); }
+    .beat.hit .beat-inner { animation:beat-hit 0.3s ease-out forwards; }
+    .beat.missed .beat-inner { background:radial-gradient(circle,var(--miss-color) 30%,#B71C1C 100%); animation:beat-miss 0.4s ease-out forwards; }
+    @keyframes beat-hit { 0%{transform:scale(1)} 50%{transform:scale(1.5)} 100%{transform:scale(0);opacity:0} }
+    @keyframes beat-miss { 0%{transform:scale(1);opacity:1} 100%{transform:scale(0.5) translateY(20px);opacity:0} }
+
+    /* Phase Label */
+    .phase-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; font-size:48px; font-weight:700; color:white;
+      text-shadow:0 4px 20px rgba(0,0,0,0.5); pointer-events:none; opacity:0; transition:opacity 0.3s; text-align:center; }
+    .phase-label.show { opacity:1; animation:label-pop 0.5s ease; }
+    .phase-label.demo { color:var(--beat-demo); }
+    .phase-label.user { color:var(--accent-light); }
+    .phase-label.countdown { color:#FFD700; font-size:72px; }
+    @keyframes label-pop { 0%{transform:translate(-50%,-50%) scale(0.5);opacity:0} 50%{transform:translate(-50%,-50%) scale(1.15);opacity:1} 100%{transform:translate(-50%,-50%) scale(1);opacity:1} }
+
+    /* Feedback */
+    .feedback-text { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); z-index:15; font-size:36px; font-weight:700; pointer-events:none; opacity:0; }
+    .feedback-text.show { animation:feedback-pop 0.6s ease-out forwards; }
+    .feedback-text.perfect { color:var(--perfect-color); text-shadow:0 0 20px var(--perfect-color); }
+    .feedback-text.good { color:var(--good-color); text-shadow:0 0 20px var(--good-color); }
+    .feedback-text.miss { color:var(--miss-color); text-shadow:0 0 20px var(--miss-color); }
+    @keyframes feedback-pop { 0%{transform:translate(-50%,-50%) scale(0.5);opacity:0} 30%{transform:translate(-50%,-80%) scale(1.2);opacity:1} 100%{transform:translate(-50%,-120%) scale(1);opacity:0} }
+    .score-popup { position:absolute; z-index:16; font-size:20px; font-weight:700; color:#FFD700; pointer-events:none; animation:score-float 0.8s ease-out forwards; }
+    @keyframes score-float { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-50px);opacity:0} }
+
+    .shake { animation:shake-screen 0.3s ease; }
+    @keyframes shake-screen { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+    /* Overlays */
+    .overlay { position:absolute; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(26,26,46,0.92); backdrop-filter:blur(8px); color:white; text-align:center; padding:32px; gap:16px; overflow-y:auto; }
+    .overlay.hidden { display:none; }
+    .overlay h1 { font-size:48px; font-weight:700; background:linear-gradient(135deg,var(--accent-light),#FFD700,var(--accent));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:8px; }
+    .overlay h2 { font-size:32px; font-weight:600; color:var(--accent-light); }
+    .overlay p { font-size:16px; opacity:0.85; max-width:500px; line-height:1.6; }
+    .overlay .instructions { background:rgba(255,255,255,0.08); border-radius:12px; padding:16px 24px; text-align:left; max-width:480px; }
+    .overlay .instructions li { list-style:none; padding:6px 0; font-size:15px; opacity:0.9; display:flex; align-items:center; gap:10px; }
+    .overlay .instructions li::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--accent-light); flex-shrink:0; }
+
+    .btn { padding:14px 48px; font-size:20px; font-weight:600; font-family:inherit; border:none; border-radius:50px; cursor:pointer;
+      transition:all 0.2s; background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:white;
+      box-shadow:0 4px 16px rgba(232,117,62,0.4); margin-top:8px; }
+    .btn:hover { transform:translateY(-2px); box-shadow:0 6px 24px rgba(232,117,62,0.5); }
+    .btn:active { transform:translateY(0); }
+    .btn.secondary { background:rgba(255,255,255,0.15); box-shadow:none; }
+    .btn.secondary:hover { background:rgba(255,255,255,0.25); }
+
+    .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:16px 0; max-width:400px; }
+    .stat-box { background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 20px; text-align:center; }
+    .stat-box .stat-label { font-size:12px; opacity:0.7; text-transform:uppercase; }
+    .stat-box .stat-value { font-size:24px; font-weight:700; color:var(--accent-light); }
+    .food-icons { display:flex; gap:20px; margin:12px 0; font-size:40px; }
+    .btn-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+
+    .mute-btn { position:absolute; top:10px; right:10px; z-index:200; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+      color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:background 0.2s; }
+    .mute-btn:hover { background:rgba(255,255,255,0.2); }
+    .hud-back { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:white;
+      padding:5px 14px; border-radius:20px; cursor:pointer; font-size:13px; font-family:inherit; transition:all 0.2s; white-space:nowrap; font-weight:600; }
+    .hud-back:hover { background:rgba(255,255,255,0.3); border-color:rgba(255,255,255,0.5); transform:translateY(-1px); }
+
+    /* Level Selection */
+    .level-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:14px; max-width:720px; margin:16px 0; width:100%; }
+    .level-card { background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; padding:14px 10px;
+      text-align:center; cursor:pointer; transition:all 0.2s; position:relative; }
+    .level-card:hover:not(.locked) { background:rgba(255,255,255,0.15); border-color:var(--accent); transform:translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,0.3); }
+    .level-card.locked { opacity:0.35; cursor:not-allowed; }
+    .level-card.completed { border-color:var(--perfect-color); }
+    .level-card-num { font-size:12px; opacity:0.6; }
+    .level-card-emoji { font-size:36px; margin:4px 0; }
+    .level-card-emoji svg { width:50px; height:50px; }
+    .level-card-name { font-size:14px; font-weight:600; }
+    .level-card-difficulty { font-size:12px; color:#FFD700; margin-top:4px; }
+    .level-card-score { font-size:11px; color:var(--accent-light); margin-top:2px; }
+    .level-card-lock { font-size:24px; position:absolute; top:8px; right:8px; }
+    .level-card-check { font-size:18px; position:absolute; top:8px; right:8px; }
+
+    .confetti { position:absolute; width:10px; height:10px; pointer-events:none; z-index:150; animation:confetti-fall 2s ease-in forwards; }
+    @keyframes confetti-fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+
+    @media (max-width:600px) {
+      .hud { padding:6px 12px; gap:8px; }
+      .hud-value { font-size:16px; } .hud-label { font-size:9px; }
+      .health-bar { width:80px; }
+      .chef-demo { padding:4px 8px; min-height:120px; }
+      .chef-character { width:50px; height:65px; }
+      .demo-food-wrap svg { max-height:40px; }
+      .food-container { width:90%; }
+      .beat-track { width:90%; }
+      .overlay h1 { font-size:32px; } .overlay h2 { font-size:24px; }
+      .phase-label { font-size:32px; } .phase-label.countdown { font-size:56px; }
+      .kitchen-window { width:100px; height:80px; }
+      .utensil-rack { display:none; }
+      .level-grid { grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div class="kitchen-bg">
+      <div class="kitchen-wall"></div>
+      <div class="kitchen-counter"></div>
+      <div class="kitchen-window"></div>
+      <div class="utensil-rack"><span class="utensil">🍳</span><span class="utensil">🥄</span><span class="utensil">🍴</span></div>
+      <div class="steam"></div><div class="steam"></div><div class="steam"></div>
+    </div>
+
+    <button class="mute-btn" id="muteBtn">🔊</button>
+
+    <div class="hud">
+      <button class="hud-back" id="backBtn">← 菜单</button>
+      <div class="hud-item hud-score"><span class="hud-label">分数</span><span class="hud-value" id="scoreVal">0</span></div>
+      <div class="hud-item hud-level"><span class="hud-label">关卡</span><span class="hud-value" id="levelVal">1</span></div>
+      <div class="hud-item"><span class="hud-label">BPM</span><span class="hud-value" id="bpmVal">--</span></div>
+      <div class="hud-item"><span class="hud-label">进度</span><div class="progress-dots" id="progressDots"></div></div>
+      <div class="hud-item hud-combo" id="comboItem"><span class="hud-label">连击</span><span class="hud-value" id="comboVal">0</span></div>
+      <div class="health-bar-container"><span class="hud-label">生命值</span><div class="health-bar"><div class="health-fill" id="healthFill"></div></div></div>
+    </div>
+
+    <div class="game-body">
+      <div class="chef-demo" id="chefDemo">
+        <div class="demo-frame">
+          <span class="demo-label">大厨示范</span>
+          <div class="chef-character" id="chefChar">
+            <svg viewBox="0 0 100 120">
+              <ellipse cx="50" cy="12" rx="22" ry="10" fill="white"/>
+              <ellipse cx="35" cy="14" rx="10" ry="8" fill="white"/>
+              <ellipse cx="65" cy="14" rx="10" ry="8" fill="white"/>
+              <rect x="30" y="18" width="40" height="8" rx="2" fill="#EEE"/>
+              <circle cx="50" cy="38" r="14" fill="#FFD4A8"/>
+              <circle cx="44" cy="36" r="2" fill="#333"/>
+              <circle cx="56" cy="36" r="2" fill="#333"/>
+              <path d="M 43 43 Q 50 48 57 43" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
+              <path d="M 40 40 Q 50 38 60 40 Q 55 43 50 42 Q 45 43 40 40" fill="#8B6F47"/>
+              <path d="M 34 52 L 66 52 L 72 105 L 28 105 Z" fill="white"/>
+              <path d="M 40 52 L 60 52 L 60 105 L 40 105 Z" fill="#F5F5F5"/>
+              <circle cx="50" cy="65" r="2" fill="#CCC"/><circle cx="50" cy="78" r="2" fill="#CCC"/><circle cx="50" cy="91" r="2" fill="#CCC"/>
+              <path d="M 34 56 L 18 72 L 22 78 L 36 62" fill="white"/>
+              <path d="M 66 56 L 82 72 L 86 66 L 70 52" fill="white"/>
+              <g><rect x="80" y="60" width="18" height="4" rx="1" fill="#C0C0C0"/><rect x="78" y="58" width="4" height="8" rx="1" fill="#8B6F47"/></g>
+              <rect x="20" y="105" width="60" height="15" fill="#8B6F47"/>
+            </svg>
+          </div>
+          <div class="demo-content">
+            <div class="demo-food-wrap" id="demoFoodWrap"></div>
+            <div class="demo-beat-track" id="demoBeatTrack"><div class="hit-zone" style="left:12%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="play-area" id="playArea">
+        <div class="food-stage">
+          <div class="food-container offscreen-right" id="foodContainer">
+            <div class="food-svg-wrap" id="foodSvgWrap"></div>
+            <div class="knife-container" id="knifeContainer">
+              <svg class="knife-svg" viewBox="0 0 80 200">
+                <path d="M 30 10 L 40 10 L 45 130 L 35 140 L 25 130 Z" fill="#E8E8E8" stroke="#AAA" stroke-width="1"/>
+                <path d="M 32 15 L 38 15 L 40 125 L 35 130 L 30 125 Z" fill="#F5F5F5" opacity="0.6"/>
+                <rect x="22" y="135" width="26" height="8" rx="2" fill="#888"/>
+                <rect x="25" y="143" width="20" height="48" rx="4" fill="#3D2B1F"/>
+                <rect x="27" y="147" width="16" height="40" rx="3" fill="#4A3525"/>
+                <circle cx="35" cy="160" r="2" fill="#666"/><circle cx="35" cy="175" r="2" fill="#666"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="beat-track" id="userBeatTrack">
+          <div class="hit-zone"></div><span class="hit-zone-label">命中区</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-label" id="phaseLabel"></div>
+    <div class="feedback-text" id="feedbackText"></div>
+
+    <!-- Start Screen -->
+    <div class="overlay" id="startScreen">
+      <h1>厨房节奏大师</h1>
+      <p>跟随大厨的节奏，在正确的时机切割美食！</p>
+      <div class="instructions">
+        <ul>
+          <li>观看大厨示范切割节奏</li>
+          <li>节拍到达命中区时，点击屏幕或按任意键</li>
+          <li>完美命中获得更高分数和连击</li>
+          <li>完成所有食品进入下一关</li>
+          <li>不要让生命值降到零！</li>
+          <li>命中率达到 70% 以上才能通关！</li>
+        </ul>
+      </div>
+      <div class="food-icons">🍞 🥒 🥕 🍅 🫑 🧅 🍆 🥬</div>
+      <button class="btn" id="startBtn">开始游戏</button>
+    </div>
+
+    <!-- Level Select -->
+    <div class="overlay hidden" id="levelSelectScreen">
+      <h1>选择关卡</h1>
+      <div class="level-grid" id="levelGrid"></div>
+      <div class="btn-row">
+        <button class="btn secondary" id="backToStartBtn">返回首页</button>
+        <button class="btn secondary" id="resetProgressBtn" style="color:#FF6B6B;">重置进度</button>
+      </div>
+    </div>
+
+    <!-- Level Complete -->
+    <div class="overlay hidden" id="levelCompleteScreen">
+      <h1>关卡完成！</h1>
+      <h2 id="lcLevel">第 1 关</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">总分</div><div class="stat-value" id="lcScore">0</div></div>
+        <div class="stat-box"><div class="stat-label">最高连击</div><div class="stat-value" id="lcCombo">0</div></div>
+        <div class="stat-box"><div class="stat-label">完美命中</div><div class="stat-value" id="lcPerfect">0</div></div>
+        <div class="stat-box"><div class="stat-label">命中率</div><div class="stat-value" id="lcAccuracy">0%</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="nextLevelBtn">下一关</button>
+        <button class="btn secondary" id="backToMenuBtn">返回菜单</button>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay hidden" id="gameOverScreen">
+      <h1>游戏结束</h1>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">最终分数</div><div class="stat-value" id="goScore">0</div></div>
+        <div class="stat-box"><div class="stat-label">到达关卡</div><div class="stat-value" id="goLevel">1</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="restartBtn">重新开始</button>
+        <button class="btn secondary" id="goBackToMenuBtn">返回菜单</button>
+      </div>
+    </div>
+
+    <!-- Victory -->
+    <div class="overlay hidden" id="victoryScreen">
+      <h1>🎉 全部通关！🎉</h1>
+      <p>你是真正的厨房节奏大师！</p>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">最终分数</div><div class="stat-value" id="vScore">0</div></div>
+        <div class="stat-box"><div class="stat-label">最高连击</div><div class="stat-value" id="vCombo">0</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="victoryRestartBtn">再玩一次</button>
+        <button class="btn secondary" id="victoryBackToMenuBtn">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== CONFIG ====================
+    const LOOKAHEAD = 2000, LEAD_IN = 1800;
+    const PERFECT_WINDOW = 90, GOOD_WINDOW = 170, MISS_WINDOW = 220;
+    const SLIDE_DURATION = 800, DEMO_BUFFER = 600, TRANSITION_BUFFER = 1000, FOOD_COMPLETE_DELAY = 900;
+
+    // ==================== FOOD DEFINITIONS ====================
+    const FOODS = {
+      bread: {
+        name:'面包', viewBox:'0 0 400 160', orientation:'horizontal', color:'#D4A056',
+        body:(w,h)=>`<ellipse cx="${w/2}" cy="${h*0.72}" rx="${w*0.46}" ry="${h*0.26}" fill="#C89030"/>
+        <path d="M ${w*0.04} ${h*0.72} Q ${w/2} ${h*0.12} ${w*0.96} ${h*0.72}" fill="#E8B870" stroke="#B88030" stroke-width="3"/>
+        <path d="M ${w*0.12} ${h*0.48} Q ${w*0.22} ${h*0.38} ${w*0.32} ${h*0.48}" stroke="#B88030" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M ${w*0.38} ${h*0.38} Q ${w/2} ${h*0.26} ${w*0.62} ${h*0.38}" stroke="#B88030" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M ${w*0.68} ${h*0.48} Q ${w*0.78} ${h*0.38} ${w*0.88} ${h*0.48}" stroke="#B88030" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="${w*0.28}" cy="${h*0.62}" rx="10" ry="4" fill="#F5DEB3" opacity="0.4"/>
+        <ellipse cx="${w*0.72}" cy="${h*0.62}" rx="8" ry="3" fill="#F5DEB3" opacity="0.4"/>
+        <ellipse cx="${w/2}" cy="${h*0.72}" rx="${w*0.46}" ry="${h*0.26}" fill="none" stroke="#A87020" stroke-width="2"/>`
+      },
+      cucumber: {
+        name:'黄瓜', viewBox:'0 0 400 120', orientation:'horizontal', color:'#5B8E4A',
+        body:(w,h)=>`<rect x="${w*0.04}" y="${h*0.22}" width="${w*0.92}" height="${h*0.56}" rx="${h*0.28}" fill="#3A6C2A"/>
+        <rect x="${w*0.04}" y="${h*0.28}" width="${w*0.92}" height="${h*0.44}" rx="${h*0.22}" fill="#4A7C3A"/>
+        <rect x="${w*0.06}" y="${h*0.32}" width="${w*0.88}" height="${h*0.12}" rx="${h*0.06}" fill="#5B8E4A" opacity="0.6"/>
+        <ellipse cx="${w*0.15}" cy="${h*0.42}" rx="5" ry="3" fill="#2A5C1A"/><ellipse cx="${w*0.3}" cy="${h*0.58}" rx="5" ry="3" fill="#2A5C1A"/>
+        <ellipse cx="${w*0.45}" cy="${h*0.4}" rx="5" ry="3" fill="#2A5C1A"/><ellipse cx="${w*0.6}" cy="${h*0.58}" rx="5" ry="3" fill="#2A5C1A"/>
+        <ellipse cx="${w*0.75}" cy="${h*0.42}" rx="5" ry="3" fill="#2A5C1A"/><ellipse cx="${w*0.88}" cy="${h*0.55}" rx="4" ry="2.5" fill="#2A5C1A"/>
+        <ellipse cx="${w*0.05}" cy="${h*0.5}" rx="10" ry="${h*0.22}" fill="#6BAE55"/><ellipse cx="${w*0.95}" cy="${h*0.5}" rx="10" ry="${h*0.22}" fill="#6BAE55"/>`
+      },
+      carrot: {
+        name:'胡萝卜', viewBox:'0 0 200 320', orientation:'vertical', color:'#E8753E',
+        body:(w,h)=>`<path d="M ${w*0.3} ${h*0.05} L ${w*0.4} ${h*0.15} L ${w*0.25} ${h*0.12} L ${w*0.35} ${h*0.2} L ${w*0.2} ${h*0.18} L ${w*0.5} ${h*0.25} L ${w*0.8} ${h*0.18} L ${w*0.65} ${h*0.2} L ${w*0.75} ${h*0.12} L ${w*0.6} ${h*0.15} L ${w*0.7} ${h*0.05}" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1"/>
+        <path d="M ${w*0.3} ${h*0.2} L ${w*0.7} ${h*0.2} L ${w*0.5} ${h*0.92} Z" fill="#E8753E" stroke="#C75A2A" stroke-width="2"/>
+        <path d="M ${w*0.38} ${h*0.25} L ${w*0.42} ${h*0.25} L ${w*0.5} ${h*0.85} L ${w*0.46} ${h*0.85} Z" fill="#F4A261" opacity="0.6"/>
+        <path d="M ${w*0.35} ${h*0.35} L ${w*0.45} ${h*0.4}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>
+        <path d="M ${w*0.55} ${h*0.4} L ${w*0.65} ${h*0.35}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>
+        <path d="M ${w*0.38} ${h*0.5} L ${w*0.48} ${h*0.55}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>
+        <path d="M ${w*0.52} ${h*0.55} L ${w*0.62} ${h*0.5}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>
+        <path d="M ${w*0.42} ${h*0.65} L ${w*0.5} ${h*0.7}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>
+        <path d="M ${w*0.5} ${h*0.7} L ${w*0.58} ${h*0.65}" stroke="#C75A2A" stroke-width="1.5" opacity="0.5"/>`
+      },
+      tomato: {
+        name:'番茄', viewBox:'0 0 300 220', orientation:'horizontal', color:'#E53935',
+        body:(w,h)=>`<ellipse cx="${w/2}" cy="${h*0.62}" rx="${h*0.36}" ry="${h*0.34}" fill="#B71C1C"/>
+        <circle cx="${w/2}" cy="${h*0.6}" r="${h*0.32}" fill="#D32F2F"/>
+        <circle cx="${w/2}" cy="${h*0.58}" r="${h*0.3}" fill="#E53935"/>
+        <ellipse cx="${w*0.38}" cy="${h*0.48}" rx="${h*0.1}" ry="${h*0.07}" fill="#EF5350" opacity="0.6"/>
+        <ellipse cx="${w*0.42}" cy="${h*0.44}" rx="${h*0.05}" ry="${h*0.03}" fill="#FFCDD2" opacity="0.5"/>
+        <path d="M ${w*0.32} ${h*0.24} L ${w*0.4} ${h*0.1} L ${w*0.48} ${h*0.2} L ${w*0.52} ${h*0.08} L ${w*0.58} ${h*0.2} L ${w*0.66} ${h*0.1} L ${w*0.68} ${h*0.24} L ${w*0.5} ${h*0.3} Z" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1"/>
+        <rect x="${w*0.48}" y="${h*0.18}" width="5" height="${h*0.1}" fill="#3A6C2A" rx="2"/>`
+      },
+      bellpepper: {
+        name:'灯笼椒', viewBox:'0 0 200 280', orientation:'vertical', color:'#FF6F00',
+        body:(w,h)=>`<path d="M ${w*0.25} ${h*0.25} Q ${w*0.15} ${h*0.4} ${w*0.18} ${h*0.6} Q ${w*0.2} ${h*0.82} ${w*0.35} ${h*0.88} L ${w*0.4} ${h*0.92} L ${w*0.45} ${h*0.88} L ${w*0.5} ${h*0.92} L ${w*0.55} ${h*0.88} L ${w*0.6} ${h*0.92} L ${w*0.65} ${h*0.88} Q ${w*0.8} ${h*0.82} ${w*0.82} ${h*0.6} Q ${w*0.85} ${h*0.4} ${w*0.75} ${h*0.25} Z" fill="#FF6F00" stroke="#E65100" stroke-width="2"/>
+        <path d="M ${w*0.3} ${h*0.3} Q ${w*0.25} ${h*0.45} ${w*0.28} ${h*0.6}" stroke="#FFB74D" stroke-width="6" fill="none" opacity="0.5" stroke-linecap="round"/>
+        <path d="M ${w*0.25} ${h*0.25} Q ${w*0.35} ${h*0.2} ${w*0.4} ${h*0.25} Q ${w*0.45} ${h*0.2} ${w*0.5} ${h*0.25} Q ${w*0.55} ${h*0.2} ${w*0.6} ${h*0.25} Q ${w*0.65} ${h*0.2} ${w*0.75} ${h*0.25}" fill="#E65100"/>
+        <path d="M ${w*0.42} ${h*0.1} L ${w*0.45} ${h*0.05} L ${w*0.55} ${h*0.05} L ${w*0.58} ${h*0.1} L ${w*0.55} ${h*0.2} L ${w*0.45} ${h*0.2} Z" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1.5"/>`
+      },
+      onion: {
+        name:'洋葱', viewBox:'0 0 300 250', orientation:'horizontal', color:'#C39BD3',
+        body:(w,h)=>`<path d="M ${w*0.48} ${h*0.88} L ${w*0.5} ${h*0.95} L ${w*0.52} ${h*0.88}" stroke="#8B6F47" stroke-width="1.5" fill="none"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.35}" ry="${h*0.38}" fill="#D4B8E0"/>
+        <ellipse cx="${w/2}" cy="${h*0.46}" rx="${w*0.33}" ry="${h*0.36}" fill="#C39BD3"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.28}" ry="${h*0.32}" fill="none" stroke="#B088C8" stroke-width="1.5" opacity="0.5"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.22}" ry="${h*0.26}" fill="none" stroke="#B088C8" stroke-width="1.5" opacity="0.5"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.15}" ry="${h*0.18}" fill="none" stroke="#B088C8" stroke-width="1.5" opacity="0.5"/>
+        <ellipse cx="${w*0.4}" cy="${h*0.35}" rx="${w*0.08}" ry="${h*0.06}" fill="#E8D5F0" opacity="0.6"/>
+        <path d="M ${w*0.45} ${h*0.1} L ${w*0.48} ${h*0.2} L ${w*0.5} ${h*0.08} L ${w*0.52} ${h*0.2} L ${w*0.55} ${h*0.1}" stroke="#8B6F47" stroke-width="2" fill="#A0825A"/>`
+      },
+      zucchini: {
+        name:'西葫芦', viewBox:'0 0 400 140', orientation:'horizontal', color:'#558B2F',
+        body:(w,h)=>`<ellipse cx="${w/2}" cy="${h*0.5}" rx="${w*0.45}" ry="${h*0.35}" fill="#33691E"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.43}" ry="${h*0.32}" fill="#558B2F"/>
+        <path d="M ${w*0.1} ${h*0.45} Q ${w*0.3} ${h*0.4} ${w*0.5} ${h*0.42} Q ${w*0.7} ${h*0.4} ${w*0.9} ${h*0.45}" stroke="#33691E" stroke-width="2" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.1} ${h*0.55} Q ${w*0.3} ${h*0.6} ${w*0.5} ${h*0.58} Q ${w*0.7} ${h*0.6} ${w*0.9} ${h*0.55}" stroke="#33691E" stroke-width="2" fill="none" opacity="0.5"/>
+        <ellipse cx="${w*0.4}" cy="${h*0.38}" rx="${w*0.15}" ry="${h*0.06}" fill="#8BC34A" opacity="0.4"/>
+        <rect x="${w*0.04}" y="${h*0.42}" width="${w*0.06}" height="${h*0.16}" rx="3" fill="#4A7C3A"/>
+        <path d="M ${w*0.94} ${h*0.4} L ${w*0.98} ${h*0.35} L ${w*0.96} ${h*0.45} L ${w*0.99} ${h*0.5} L ${w*0.96} ${h*0.55} L ${w*0.98} ${h*0.65} L ${w*0.94} ${h*0.6}" fill="#FFC107" opacity="0.7"/>`
+      },
+      celery: {
+        name:'芹菜', viewBox:'0 0 200 320', orientation:'vertical', color:'#6BAE55',
+        body:(w,h)=>`<path d="M ${w*0.25} ${h*0.1} Q ${w*0.2} ${h*0.5} ${w*0.25} ${h*0.88} L ${w*0.32} ${h*0.88} Q ${w*0.3} ${h*0.5} ${w*0.32} ${h*0.1}" fill="#5B8E4A" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.35} ${h*0.05} Q ${w*0.33} ${h*0.5} ${w*0.37} ${h*0.9} L ${w*0.45} ${h*0.9} Q ${w*0.43} ${h*0.5} ${w*0.42} ${h*0.05}" fill="#6BAE55" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.46} ${h*0.03} Q ${w*0.45} ${h*0.5} ${w*0.48} ${h*0.92} L ${w*0.55} ${h*0.92} Q ${w*0.54} ${h*0.5} ${w*0.53} ${h*0.03}" fill="#7BCE65" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.56} ${h*0.03} Q ${w*0.57} ${h*0.5} ${w*0.55} ${h*0.92} L ${w*0.63} ${h*0.92} Q ${w*0.63} ${h*0.5} ${w*0.63} ${h*0.03}" fill="#6BAE55" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.66} ${h*0.05} Q ${w*0.67} ${h*0.5} ${w*0.65} ${h*0.9} L ${w*0.73} ${h*0.9} Q ${w*0.73} ${h*0.5} ${w*0.73} ${h*0.05}" fill="#5B8E4A" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.2} ${h*0.05} L ${w*0.3} ${h*0.12} L ${w*0.25} ${h*0.08} L ${w*0.35} ${h*0.15} L ${w*0.4} ${h*0.1}" fill="#4A7C3A" opacity="0.7"/>
+        <path d="M ${w*0.6} ${h*0.05} L ${w*0.7} ${h*0.12} L ${w*0.65} ${h*0.08} L ${w*0.75} ${h*0.15} L ${w*0.8} ${h*0.1}" fill="#4A7C3A" opacity="0.7"/>
+        <ellipse cx="${w/2}" cy="${h*0.9}" rx="${w*0.25}" ry="${h*0.03}" fill="#3A6C2A" opacity="0.5"/>`
+      },
+      radish: {
+        name:'水萝卜', viewBox:'0 0 200 280', orientation:'vertical', color:'#E53935',
+        body:(w,h)=>`<path d="M ${w*0.35} ${h*0.02} L ${w*0.3} ${h*0.15} L ${w*0.4} ${h*0.12} L ${w*0.5} ${h*0.18} L ${w*0.6} ${h*0.12} L ${w*0.7} ${h*0.15} L ${w*0.65} ${h*0.02}" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1"/>
+        <ellipse cx="${w/2}" cy="${h*0.35}" rx="${w*0.28}" ry="${h*0.22}" fill="#E53935"/>
+        <ellipse cx="${w/2}" cy="${h*0.33}" rx="${w*0.26}" ry="${h*0.2}" fill="#EF5350"/>
+        <path d="M ${w*0.35} ${h*0.45} Q ${w/2} ${h*0.6} ${w*0.65} ${h*0.45} Q ${w*0.55} ${h*0.85} ${w/2} ${h*0.9} Q ${w*0.45} ${h*0.85} ${w*0.35} ${h*0.45}" fill="#FAFAFA" stroke="#E0E0E0" stroke-width="1"/>
+        <ellipse cx="${w*0.42}" cy="${h*0.28}" rx="${w*0.06}" ry="${h*0.05}" fill="#FFCDD2" opacity="0.6"/>
+        <path d="M ${w*0.4} ${h*0.9} L ${w*0.38} ${h*0.96}" stroke="#BDBDBD" stroke-width="1.5"/>
+        <path d="M ${w*0.5} ${h*0.9} L ${w*0.5} ${h*0.97}" stroke="#BDBDBD" stroke-width="1.5"/>
+        <path d="M ${w*0.6} ${h*0.9} L ${w*0.62} ${h*0.96}" stroke="#BDBDBD" stroke-width="1.5"/>`
+      },
+      cabbage: {
+        name:'卷心菜', viewBox:'0 0 300 250', orientation:'horizontal', color:'#8BDE75',
+        body:(w,h)=>`<ellipse cx="${w*0.2}" cy="${h*0.5}" rx="${w*0.15}" ry="${h*0.3}" fill="#5B8E4A" transform="rotate(-20 ${w*0.2} ${h*0.5})"/>
+        <ellipse cx="${w*0.8}" cy="${h*0.5}" rx="${w*0.15}" ry="${h*0.3}" fill="#5B8E4A" transform="rotate(20 ${w*0.8} ${h*0.5})"/>
+        <ellipse cx="${w/2}" cy="${h*0.5}" rx="${w*0.36}" ry="${h*0.38}" fill="#7BCE65"/>
+        <ellipse cx="${w/2}" cy="${h*0.48}" rx="${w*0.34}" ry="${h*0.36}" fill="#8BDE75"/>
+        <path d="M ${w*0.2} ${h*0.5} Q ${w*0.3} ${h*0.4} ${w*0.5} ${h*0.3}" stroke="#5B8E4A" stroke-width="2" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.8} ${h*0.5} Q ${w*0.7} ${h*0.4} ${w*0.5} ${h*0.3}" stroke="#5B8E4A" stroke-width="2" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.25} ${h*0.65} Q ${w*0.35} ${h*0.55} ${w*0.5} ${h*0.5}" stroke="#5B8E4A" stroke-width="2" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.75} ${h*0.65} Q ${w*0.65} ${h*0.55} ${w*0.5} ${h*0.5}" stroke="#5B8E4A" stroke-width="2" fill="none" opacity="0.5"/>
+        <ellipse cx="${w/2}" cy="${h*0.5}" rx="${w*0.28}" ry="${h*0.3}" fill="none" stroke="#6BAE55" stroke-width="2" opacity="0.4"/>
+        <ellipse cx="${w/2}" cy="${h*0.5}" rx="${w*0.2}" ry="${h*0.22}" fill="none" stroke="#6BAE55" stroke-width="2" opacity="0.4"/>
+        <ellipse cx="${w*0.4}" cy="${h*0.35}" rx="${w*0.08}" ry="${h*0.06}" fill="#A0E890" opacity="0.5"/>`
+      },
+      lettuce: {
+        name:'生菜', viewBox:'0 0 300 250', orientation:'horizontal', color:'#8BC34A',
+        body:(w,h)=>`<path d="M ${w*0.1} ${h*0.5} Q ${w*0.05} ${h*0.3} ${w*0.15} ${h*0.25} Q ${w*0.1} ${h*0.15} ${w*0.25} ${h*0.18} Q ${w*0.2} ${h*0.08} ${w*0.35} ${h*0.12} Q ${w*0.4} ${h*0.05} ${w*0.5} ${h*0.1} Q ${w*0.6} ${h*0.05} ${w*0.65} ${h*0.12} Q ${w*0.8} ${h*0.08} ${w*0.75} ${h*0.18} Q ${w*0.9} ${h*0.15} ${w*0.85} ${h*0.25} Q ${w*0.95} ${h*0.3} ${w*0.9} ${h*0.5} Q ${w*0.95} ${h*0.7} ${w*0.85} ${h*0.75} Q ${w*0.9} ${h*0.85} ${w*0.75} ${h*0.82} Q ${w*0.8} ${h*0.92} ${w*0.65} ${h*0.88} Q ${w*0.6} ${h*0.95} ${w*0.5} ${h*0.9} Q ${w*0.4} ${h*0.95} ${w*0.35} ${h*0.88} Q ${w*0.2} ${h*0.92} ${w*0.25} ${h*0.82} Q ${w*0.1} ${h*0.85} ${w*0.15} ${h*0.75} Q ${w*0.05} ${h*0.7} ${w*0.1} ${h*0.5}" fill="#7CB342"/>
+        <path d="M ${w*0.2} ${h*0.5} Q ${w*0.15} ${h*0.35} ${w*0.25} ${h*0.3} Q ${w*0.35} ${h*0.2} ${w*0.5} ${h*0.22} Q ${w*0.65} ${h*0.2} ${w*0.75} ${h*0.3} Q ${w*0.85} ${h*0.35} ${w*0.8} ${h*0.5} Q ${w*0.85} ${h*0.65} ${w*0.75} ${h*0.7} Q ${w*0.65} ${h*0.8} ${w*0.5} ${h*0.78} Q ${w*0.35} ${h*0.8} ${w*0.25} ${h*0.7} Q ${w*0.15} ${h*0.65} ${w*0.2} ${h*0.5}" fill="#8BC34A"/>
+        <path d="M ${w*0.2} ${h*0.5} Q ${w*0.35} ${h*0.4} ${w*0.5} ${h*0.35}" stroke="#689F38" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.8} ${h*0.5} Q ${w*0.65} ${h*0.4} ${w*0.5} ${h*0.35}" stroke="#689F38" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <path d="M ${w*0.5} ${h*0.35} L ${w*0.5} ${h*0.7}" stroke="#689F38" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <ellipse cx="${w*0.4}" cy="${h*0.35}" rx="${w*0.06}" ry="${h*0.04}" fill="#AED581" opacity="0.6"/>`
+      },
+      eggplant: {
+        name:'茄子', viewBox:'0 0 260 300', orientation:'vertical', color:'#6A4C93',
+        body:(w,h)=>`<ellipse cx="${w/2}" cy="${h*0.58}" rx="${w*0.32}" ry="${h*0.35}" fill="#4A2C73"/>
+        <ellipse cx="${w/2}" cy="${h*0.56}" rx="${w*0.3}" ry="${h*0.33}" fill="#5A3C83"/>
+        <ellipse cx="${w/2}" cy="${h*0.55}" rx="${w*0.28}" ry="${h*0.31}" fill="#6A4C93"/>
+        <ellipse cx="${w*0.4}" cy="${h*0.42}" rx="${w*0.09}" ry="${h*0.13}" fill="#7B5DAB" opacity="0.5"/>
+        <ellipse cx="${w*0.42}" cy="${h*0.38}" rx="${w*0.04}" ry="${h*0.06}" fill="#9B7DCB" opacity="0.4"/>
+        <path d="M ${w*0.28} ${h*0.2} Q ${w/2} ${h*0.08} ${w*0.72} ${h*0.2} L ${w*0.62} ${h*0.28} Q ${w/2} ${h*0.24} ${w*0.38} ${h*0.28} Z" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1.5"/>
+        <rect x="${w*0.46}" y="${h*0.12}" width="8" height="${h*0.1}" fill="#3A6C2A" rx="3"/>
+        <ellipse cx="${w/2}" cy="${h*0.85}" rx="${w*0.16}" ry="${h*0.04}" fill="#3A1C53" opacity="0.3"/>`
+      },
+      leek: {
+        name:'韭葱', viewBox:'0 0 200 320', orientation:'vertical', color:'#8BC34A',
+        body:(w,h)=>`<path d="M ${w*0.3} ${h*0.02} Q ${w*0.28} ${h*0.3} ${w*0.32} ${h*0.5} L ${w*0.68} ${h*0.5} Q ${w*0.72} ${h*0.3} ${w*0.7} ${h*0.02}" fill="#4A7C3A" stroke="#3A6C2A" stroke-width="1.5"/>
+        <path d="M ${w*0.32} ${h*0.1} L ${w*0.68} ${h*0.1}" stroke="#3A6C2A" stroke-width="1" opacity="0.4"/>
+        <path d="M ${w*0.31} ${h*0.2} L ${w*0.69} ${h*0.2}" stroke="#3A6C2A" stroke-width="1" opacity="0.4"/>
+        <path d="M ${w*0.31} ${h*0.3} L ${w*0.69} ${h*0.3}" stroke="#3A6C2A" stroke-width="1" opacity="0.4"/>
+        <path d="M ${w*0.32} ${h*0.4} L ${w*0.68} ${h*0.4}" stroke="#3A6C2A" stroke-width="1" opacity="0.4"/>
+        <path d="M ${w*0.32} ${h*0.5} Q ${w*0.35} ${h*0.55} ${w*0.35} ${h*0.6} L ${w*0.65} ${h*0.6} Q ${w*0.65} ${h*0.55} ${w*0.68} ${h*0.5}" fill="#8BC34A"/>
+        <path d="M ${w*0.35} ${h*0.6} Q ${w*0.33} ${h*0.75} ${w*0.35} ${h*0.88} L ${w*0.65} ${h*0.88} Q ${w*0.67} ${h*0.75} ${w*0.65} ${h*0.6}" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1.5"/>
+        <path d="M ${w*0.35} ${h*0.65} L ${w*0.65} ${h*0.65}" stroke="#E0E0E0" stroke-width="1" opacity="0.6"/>
+        <path d="M ${w*0.34} ${h*0.72} L ${w*0.66} ${h*0.72}" stroke="#E0E0E0" stroke-width="1" opacity="0.6"/>
+        <path d="M ${w*0.34} ${h*0.8} L ${w*0.66} ${h*0.8}" stroke="#E0E0E0" stroke-width="1" opacity="0.6"/>
+        <path d="M ${w*0.4} ${h*0.88} L ${w*0.38} ${h*0.95}" stroke="#BDBDBD" stroke-width="1"/>
+        <path d="M ${w*0.5} ${h*0.88} L ${w*0.5} ${h*0.96}" stroke="#BDBDBD" stroke-width="1"/>
+        <path d="M ${w*0.6} ${h*0.88} L ${w*0.62} ${h*0.95}" stroke="#BDBDBD" stroke-width="1"/>`
+      },
+      greenbeans: {
+        name:'四季豆', viewBox:'0 0 400 100', orientation:'horizontal', color:'#5B8E4A',
+        body:(w,h)=>`<path d="M ${w*0.05} ${h*0.3} Q ${w*0.25} ${h*0.15} ${w*0.5} ${h*0.25} Q ${w*0.75} ${h*0.35} ${w*0.95} ${h*0.2}" stroke="#4A7C3A" stroke-width="${h*0.16}" fill="none" stroke-linecap="round"/>
+        <path d="M ${w*0.05} ${h*0.3} Q ${w*0.25} ${h*0.15} ${w*0.5} ${h*0.25} Q ${w*0.75} ${h*0.35} ${w*0.95} ${h*0.2}" stroke="#5B8E4A" stroke-width="${h*0.12}" fill="none" stroke-linecap="round"/>
+        <ellipse cx="${w*0.15}" cy="${h*0.27}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.3}" cy="${h*0.22}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>
+        <ellipse cx="${w*0.45}" cy="${h*0.24}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.6}" cy="${h*0.28}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>
+        <ellipse cx="${w*0.75}" cy="${h*0.3}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.88}" cy="${h*0.24}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>
+        <path d="M ${w*0.05} ${h*0.7} Q ${w*0.25} ${h*0.8} ${w*0.5} ${h*0.72} Q ${w*0.75} ${h*0.65} ${w*0.95} ${h*0.75}" stroke="#4A7C3A" stroke-width="${h*0.16}" fill="none" stroke-linecap="round"/>
+        <path d="M ${w*0.05} ${h*0.7} Q ${w*0.25} ${h*0.8} ${w*0.5} ${h*0.72} Q ${w*0.75} ${h*0.65} ${w*0.95} ${h*0.75}" stroke="#5B8E4A" stroke-width="${h*0.12}" fill="none" stroke-linecap="round"/>
+        <ellipse cx="${w*0.15}" cy="${h*0.73}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.3}" cy="${h*0.77}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>
+        <ellipse cx="${w*0.45}" cy="${h*0.73}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.6}" cy="${h*0.7}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>
+        <ellipse cx="${w*0.75}" cy="${h*0.68}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/><ellipse cx="${w*0.88}" cy="${h*0.73}" rx="6" ry="4" fill="#3A6C2A" opacity="0.4"/>`
+      },
+    };
+
+    // ==================== LEVEL DEFINITIONS ====================
+    // Patterns are in BEAT FRACTIONS (0=beat 0, 0.5=8th note, 0.25=16th, 0.75=dotted 8th)
+    // This ensures every cut lands exactly on a musical subdivision of the BPM grid
+    const LEVELS = [
+      // === Early levels: fast difficulty ramp ===
+      { food:'bread',      foods:3, bpm:90,  name:'面包',
+        patterns:[[0,1,2], [0,0.5,1,1.5], [0,1,2,3]] },
+      { food:'cucumber',   foods:3, bpm:105, name:'黄瓜',
+        patterns:[[0,0.5,1,1.5], [0,0.75,1.5,2.25,3], [0,0.5,1,1.5,2,2.5]] },
+      { food:'carrot',     foods:4, bpm:115, name:'胡萝卜',
+        patterns:[[0,0.5,1,1.5], [0,0.75,1.5,2.25,3], [0,0.5,0.75,1.25,1.75,2.5], [0,0.5,1,1.5,2,2.5]] },
+      { food:'tomato',     foods:4, bpm:125, name:'番茄',
+        patterns:[[0,0.75,1.5,2.25,3], [0,0.5,1,1.25,1.75,2.5], [0,0.25,0.5,1,1.5,2,2.5], [0,0.5,0.75,1.25,1.75,2.25,2.75]] },
+      // === Mid levels: complex rhythms with multiple fast sections ===
+      { food:'bellpepper', foods:4, bpm:130, name:'灯笼椒',
+        patterns:[[0,0.5,1,1.25,1.75,2.5], [0,0.5,0.75,1.25,1.75,2.25], [0,0.25,0.5,0.75,1,1.5,2,2.5], [0,0.5,1,1.5,2,2.25,2.75,3]] },
+      { food:'onion',      foods:4, bpm:135, name:'洋葱',
+        patterns:[[0,0.5,1,1.5,2,2.5], [0,0.5,0.75,1.25,1.75,2.25,2.75], [0,0.25,0.5,0.75,1,1.5,2,2.5], [0,0.5,1,1.5,2,2.25,2.5,2.75,3]] },
+      { food:'zucchini',   foods:5, bpm:140, name:'西葫芦',
+        patterns:[[0,0.5,0.75,1.25,1.75,2.25], [0,0.25,0.5,0.75,1,1.5,2,2.5], [0,0.5,1,1.25,1.75,2.25,2.75,3], [0,0.5,0.75,1,1.5,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.5,3]] },
+      { food:'celery',     foods:5, bpm:145, name:'芹菜',
+        patterns:[[0,0.5,1,1.25,1.75,2.25,2.75], [0,0.5,0.75,1.25,1.75,2.25,2.75], [0,0.25,0.5,1,1.5,2,2.5,3], [0,0.5,1,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.75,2.25,2.75,3]] },
+      { food:'radish',     foods:5, bpm:135, name:'水萝卜',
+        patterns:[[0,0.5,0.75,1.25,1.75,2.25,2.75], [0,0.25,0.5,0.75,1,1.5,2,2.5,3], [0,0.5,1,1.25,1.5,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.25,2.5,3], [0,0.5,0.75,1,1.25,1.75,2,2.5,2.75,3]] },
+      { food:'cabbage',    foods:5, bpm:150, name:'卷心菜',
+        patterns:[[0,0.5,0.75,1,1.5,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.5,1,1.25,1.75,2,2.5,2.75,3], [0,0.25,0.5,1,1.5,2,2.25,2.5,3], [0,0.25,0.5,0.75,1,1.5,1.75,2,2.5,2.75,3]] },
+      // === Late levels: extreme difficulty ===
+      { food:'leek',       foods:5, bpm:140, name:'韭葱',
+        patterns:[[0,0.5,1,1.25,1.75,2.25,2.75], [0,0.25,0.5,0.75,1,1.5,2,2.5,3], [0,0.5,0.75,1.25,1.5,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.75,2.25,2.5,3], [0,0.5,1,1.25,1.5,2,2.25,2.5,2.75,3]] },
+      { food:'greenbeans', foods:5, bpm:155, name:'四季豆',
+        patterns:[[0,0.5,0.75,1,1.5,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.5,1,1.25,1.75,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.5,2,2.25,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3]] },
+      { food:'lettuce',    foods:5, bpm:145, name:'生菜',
+        patterns:[[0,0.5,0.75,1,1.5,2,2.5,3], [0,0.25,0.5,1,1.5,2,2.5,3], [0,0.5,1,1.25,1.75,2.25,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.5,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.75,3]] },
+      { food:'eggplant',   foods:5, bpm:160, name:'茄子',
+        patterns:[[0,0.25,0.5,0.75,1,1.5,2,2.5,3], [0,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.5,3], [0,0.5,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,2.75,3]] },
+      // === Master levels: reused vegetables, extreme difficulty ===
+      { food:'bread',      foods:5, bpm:165, name:'面包大师',
+        patterns:[[0,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.5,3], [0,0.5,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3]] },
+      { food:'cucumber',   foods:6, bpm:170, name:'黄瓜大师',
+        patterns:[[0,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,2,2.5,3], [0,0.5,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.5,2.75,3]] },
+      { food:'carrot',     foods:6, bpm:175, name:'胡萝卜大师',
+        patterns:[[0,0.25,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,1.75,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3]] },
+      { food:'tomato',     foods:6, bpm:180, name:'番茄大师',
+        patterns:[[0,0.5,0.75,1,1.25,1.75,2.25,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3]] },
+      { food:'bellpepper', foods:6, bpm:185, name:'灯笼椒大师',
+        patterns:[[0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.5,0.75,1,1.25,1.5,1.75,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3]] },
+      { food:'eggplant',   foods:6, bpm:190, name:'茄子终极',
+        patterns:[[0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3], [0,0.5,0.75,1,1.25,1.5,1.75,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3], [0,0.5,0.75,1,1.25,1.5,2,2.25,2.5,2.75,3], [0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3]] },
+    ];
+
+    function getDifficulty(bpm) {
+      if (bpm < 100) return '★☆☆';
+      if (bpm < 120) return '★★☆';
+      if (bpm < 140) return '★★★';
+      if (bpm < 160) return '★★★★';
+      return '★★★★★';
+    }
+
+    // ==================== AUDIO ====================
+    let audioCtx = null, muted = false, bgMusic = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playTick(freq=700, vol=0.15, dur=0.06) {
+      if (muted || !audioCtx) return;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime+dur);
+    }
+
+    function playSlice() {
+      if (muted || !audioCtx) return;
+      const bs = audioCtx.sampleRate*0.08;
+      const buf = audioCtx.createBuffer(1, bs, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i=0;i<bs;i++) d[i] = (Math.random()*2-1)*(1-i/bs)*0.5;
+      const src = audioCtx.createBufferSource(); src.buffer = buf;
+      const filt = audioCtx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=3000; filt.Q.value=2;
+      const gain = audioCtx.createGain(); gain.gain.value=0.2;
+      src.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination);
+      src.start();
+    }
+
+    function playPerfect() {
+      if (muted || !audioCtx) return;
+      [659,784,1047].forEach((f,i)=>{
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+        const t=audioCtx.currentTime+i*0.04;
+        osc.type='triangle'; osc.frequency.value=f;
+        gain.gain.setValueAtTime(0.12,t);
+        gain.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(t); osc.stop(t+0.12);
+      });
+    }
+
+    function playGood() {
+      if (muted || !audioCtx) return;
+      [523,659].forEach((f,i)=>{
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+        const t=audioCtx.currentTime+i*0.05;
+        osc.type='triangle'; osc.frequency.value=f;
+        gain.gain.setValueAtTime(0.1,t);
+        gain.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(t); osc.stop(t+0.1);
+      });
+    }
+
+    function playMiss() {
+      if (muted || !audioCtx) return;
+      const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+      osc.type='square';
+      osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime+0.15);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.2);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime+0.2);
+    }
+
+    function playLevelComplete() {
+      if (muted || !audioCtx) return;
+      [523,659,784,1047,1319].forEach((f,i)=>{
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+        const t=audioCtx.currentTime+i*0.1;
+        osc.type='triangle'; osc.frequency.value=f;
+        gain.gain.setValueAtTime(0.15,t);
+        gain.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(t); osc.stop(t+0.3);
+      });
+    }
+
+    // ==================== BACKGROUND MUSIC ====================
+    const NOTE = {
+      C2:65.41, Cs2:69.30, D2:73.42, Ds2:77.78, E2:82.41, F2:87.31, Fs2:92.50, G2:98.00, Gs2:103.83, A2:110.00, As2:116.54, B2:123.47,
+      C3:130.81, Cs3:138.59, D3:146.83, Ds3:155.56, E3:164.81, F3:174.61, Fs3:185.00, G3:196.00, Gs3:207.65, A3:220.00, As3:233.08, B3:246.94,
+      C4:261.63, Cs4:277.18, D4:293.66, Ds4:311.13, E4:329.63, F4:349.23, Fs4:369.99, G4:392.00, Gs4:415.30, A4:440.00, As4:466.16, B4:493.88,
+      C5:523.25, Cs5:554.37, D5:587.33, Ds5:622.25, E5:659.25, F5:698.46, Fs5:739.99, G5:783.99, Gs5:830.61, A5:880.00, As5:932.33, B5:987.77,
+      C6:1046.50, D6:1174.66, E6:1318.51, F6:1396.91, G6:1567.98, A6:1760.00,
+    };
+
+    const DRUM_PATTERNS = {
+      chill:     { kick:[1,0,1,0], snare:[0,0,0,0], hh:0.02, oh:[0,0,0,0] },
+      funk:      { kick:[1,0,1,0], snare:[0,1,0,1], hh:0.04, oh:[0,0,1,0], ko:[0,1,0,0] },
+      pop:       { kick:[1,0,1,0], snare:[0,1,0,1], hh:0.03, oh:[0,0,0,0] },
+      latin:     { kick:[1,0,0,1], snare:[0,0,1,0], hh:0.04, oh:[0,1,0,1], clap:[0,0,1,0] },
+      rock:      { kick:[1,0,1,0], snare:[0,1,0,1], hh:0.05, oh:[0,0,0,0] },
+      jazz:      { kick:[1,0,0,0], snare:[0,0,1,0], hh:0.03, oh:[0,0,0,0] },
+      electronic:{ kick:[1,1,1,1], snare:[0,0,0,0], hh:0.04, oh:[0,1,0,1], clap:[0,1,0,1] },
+      dance:     { kick:[1,1,1,1], snare:[0,0,0,0], hh:0.04, oh:[0,1,0,1], clap:[0,1,0,1] },
+      reggae:    { kick:[1,0,1,0], snare:[0,0,1,0], hh:0.02, oh:[1,0,1,0] },
+      dnb:       { kick:[1,0,0,1], snare:[0,1,0,1], hh:0.05, oh:[1,0,1,0], ko:[0,0,1,0] },
+      synthwave: { kick:[1,0,1,0], snare:[0,1,0,1], hh:0.03, oh:[0,0,0,0], clap:[0,1,0,1] },
+      hardcore:  { kick:[1,1,1,1], snare:[0,1,0,1], hh:0.06, oh:[0,0,1,0] },
+      disco:     { kick:[1,1,1,1], snare:[0,0,0,0], hh:0.04, oh:[0,1,0,1], clap:[0,1,0,1] },
+      epic:      { kick:[1,0,1,0], snare:[0,1,0,1], hh:0.04, oh:[0,0,0,0], crash:true },
+    };
+
+    const MUSIC_STYLES = [
+      // 1. Bread (86 BPM) - Warm Am groove
+      { name:'Warm Kitchen', chords:[{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]}],
+        melody:[NOTE.A4,null,NOTE.C5,NOTE.E5,NOTE.D5,null,NOTE.B4,NOTE.G4], leadType:'triangle', bassType:'sine', drums:'chill' },
+      // 2. Cucumber (100 BPM) - Funky Dm
+      { name:'Garden Groove', chords:[{root:NOTE.D2,notes:[NOTE.D3,NOTE.F3,NOTE.A3]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]}],
+        melody:[NOTE.A4,NOTE.D5,NOTE.C5,NOTE.A4,NOTE.As4,NOTE.D5,NOTE.F5,null], leadType:'sawtooth', bassType:'square', drums:'funk' },
+      // 3. Carrot (100 BPM) - Sunny C major
+      { name:'Sunny Days', chords:[{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]}],
+        melody:[NOTE.G4,NOTE.C5,NOTE.E5,NOTE.D5,NOTE.C5,NOTE.G4,NOTE.A4,NOTE.B4], leadType:'square', bassType:'sawtooth', drums:'pop' },
+      // 4. Tomato (100 BPM) - Latin Em
+      { name:'Latin Heat', chords:[{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.B2,notes:[NOTE.B3,NOTE.D4,NOTE.Fs4]},{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]}],
+        melody:[NOTE.B4,NOTE.E5,NOTE.D5,NOTE.B4,NOTE.C5,NOTE.A4,NOTE.B4,null], leadType:'sawtooth', bassType:'square', drums:'latin' },
+      // 5. Bellpepper (110 BPM) - Rock G
+      { name:'Rock Kitchen', chords:[{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.D3,notes:[NOTE.D4,NOTE.Fs4,NOTE.A4]},{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]}],
+        melody:[NOTE.D5,NOTE.B4,NOTE.G4,NOTE.A4,NOTE.B4,NOTE.C5,NOTE.D5,NOTE.E5], leadType:'sawtooth', bassType:'sawtooth', drums:'rock' },
+      // 6. Onion (115 BPM) - Jazz F
+      { name:'Jazz Lounge', chords:[{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.D2,notes:[NOTE.D3,NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4,NOTE.As4]}],
+        melody:[NOTE.A4,NOTE.C5,NOTE.E5,NOTE.D5,NOTE.F5,NOTE.E5,NOTE.D5,NOTE.C5], leadType:'triangle', bassType:'sine', drums:'jazz' },
+      // 7. Zucchini (120 BPM) - Electronic Am
+      { name:'Electronic Pulse', chords:[{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]}],
+        melody:[NOTE.E5,NOTE.A5,NOTE.G5,NOTE.E5,NOTE.C5,NOTE.E5,NOTE.D5,NOTE.C5], leadType:'square', bassType:'sawtooth', drums:'electronic' },
+      // 8. Celery (130 BPM) - Dance Em
+      { name:'Dance Floor', chords:[{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.D3,notes:[NOTE.D4,NOTE.Fs4,NOTE.A4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]}],
+        melody:[NOTE.B4,NOTE.E5,NOTE.D5,NOTE.E5,NOTE.G5,NOTE.E5,NOTE.B4,NOTE.G4], leadType:'sawtooth', bassType:'square', drums:'dance' },
+      // 9. Radish (130 BPM) - Reggae D
+      { name:'Island Vibes', chords:[{root:NOTE.D2,notes:[NOTE.D3,NOTE.Fs3,NOTE.A3]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.D2,notes:[NOTE.D3,NOTE.Fs3,NOTE.A3]}],
+        melody:[NOTE.A4,NOTE.D5,NOTE.Fs5,NOTE.A5,NOTE.G5,NOTE.Fs5,NOTE.E5,NOTE.D5], leadType:'square', bassType:'sine', drums:'reggae' },
+      // 10. Cabbage (140 BPM) - DnB Bm
+      { name:'Speed Kitchen', chords:[{root:NOTE.B2,notes:[NOTE.B3,NOTE.D4,NOTE.Fs4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.D3,notes:[NOTE.D4,NOTE.Fs4,NOTE.A4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]}],
+        melody:[NOTE.Fs5,NOTE.D5,NOTE.B4,NOTE.A4,NOTE.B4,NOTE.D5,NOTE.E5,NOTE.Fs5], leadType:'sawtooth', bassType:'sawtooth', drums:'dnb' },
+      // 11. Leek (125 BPM) - Synthwave C#m
+      { name:'Synthwave', chords:[{root:NOTE.Cs2,notes:[NOTE.Cs3,NOTE.E3,NOTE.Gs3]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.E2,notes:[NOTE.E3,NOTE.Gs3,NOTE.B3]},{root:NOTE.B2,notes:[NOTE.B3,NOTE.D4,NOTE.Fs4]}],
+        melody:[NOTE.Gs4,NOTE.Cs5,NOTE.E5,NOTE.Gs5,NOTE.Fs5,NOTE.E5,NOTE.Cs5,NOTE.B4], leadType:'sawtooth', bassType:'sawtooth', drums:'synthwave' },
+      // 12. Greenbeans (150 BPM) - Hardcore Gm
+      { name:'Hardcore', chords:[{root:NOTE.G2,notes:[NOTE.G3,NOTE.As3,NOTE.D4]},{root:NOTE.Ds2,notes:[NOTE.Ds3,NOTE.G3,NOTE.As3]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]}],
+        melody:[NOTE.D5,NOTE.G5,NOTE.F5,NOTE.D5,NOTE.Ds5,NOTE.F5,NOTE.G5,NOTE.As5], leadType:'square', bassType:'sawtooth', drums:'hardcore' },
+      // 13. Lettuce (130 BPM) - Disco F
+      { name:'Disco Fever', chords:[{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]}],
+        melody:[NOTE.C5,NOTE.F5,NOTE.A5,NOTE.G5,NOTE.F5,NOTE.E5,NOTE.D5,NOTE.C5], leadType:'sawtooth', bassType:'square', drums:'disco' },
+      // 14. Eggplant (150 BPM) - Epic Dm
+      { name:'Epic Finale', chords:[{root:NOTE.D2,notes:[NOTE.D3,NOTE.F3,NOTE.A3]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]}],
+        melody:[NOTE.A4,NOTE.D5,NOTE.F5,NOTE.A5,NOTE.G5,NOTE.F5,NOTE.E5,NOTE.D5], leadType:'sawtooth', bassType:'sawtooth', drums:'epic' },
+      // 15. Bread Master (165 BPM) - Intense Rock Am
+      { name:'Bread Master', chords:[{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]}],
+        melody:[NOTE.E5,NOTE.A5,NOTE.G5,NOTE.E5,NOTE.F5,NOTE.D5,NOTE.E5,NOTE.A5], leadType:'sawtooth', bassType:'sawtooth', drums:'rock' },
+      // 16. Cucumber Master (170 BPM) - Hardcore Dm
+      { name:'Cucumber Master', chords:[{root:NOTE.D2,notes:[NOTE.D3,NOTE.F3,NOTE.A3]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]}],
+        melody:[NOTE.A4,NOTE.D5,NOTE.F5,NOTE.A5,NOTE.G5,NOTE.F5,NOTE.D5,NOTE.A4], leadType:'square', bassType:'sawtooth', drums:'hardcore' },
+      // 17. Carrot Master (175 BPM) - DnB C
+      { name:'Carrot Master', chords:[{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]},{root:NOTE.F2,notes:[NOTE.F3,NOTE.A3,NOTE.C4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]}],
+        melody:[NOTE.G4,NOTE.C5,NOTE.E5,NOTE.G5,NOTE.A5,NOTE.G5,NOTE.E5,NOTE.C5], leadType:'sawtooth', bassType:'sawtooth', drums:'dnb' },
+      // 18. Tomato Master (180 BPM) - Electronic Em
+      { name:'Tomato Master', chords:[{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.D3,notes:[NOTE.D4,NOTE.Fs4,NOTE.A4]}],
+        melody:[NOTE.B4,NOTE.E5,NOTE.G5,NOTE.B5,NOTE.A5,NOTE.G5,NOTE.E5,NOTE.B4], leadType:'square', bassType:'sawtooth', drums:'electronic' },
+      // 19. Bellpepper Master (185 BPM) - Hardcore G
+      { name:'Bellpepper Master', chords:[{root:NOTE.G2,notes:[NOTE.G3,NOTE.B3,NOTE.D4]},{root:NOTE.E2,notes:[NOTE.E3,NOTE.G3,NOTE.B3]},{root:NOTE.C3,notes:[NOTE.C4,NOTE.E4,NOTE.G4]},{root:NOTE.D3,notes:[NOTE.D4,NOTE.Fs4,NOTE.A4]}],
+        melody:[NOTE.D5,NOTE.G5,NOTE.B5,NOTE.D5,NOTE.E5,NOTE.D5,NOTE.B4,NOTE.G4], leadType:'sawtooth', bassType:'sawtooth', drums:'hardcore' },
+      // 20. Eggplant Ultimate (190 BPM) - Epic Dm
+      { name:'Eggplant Ultimate', chords:[{root:NOTE.D2,notes:[NOTE.D3,NOTE.F3,NOTE.A3]},{root:NOTE.As2,notes:[NOTE.As3,NOTE.D4,NOTE.F4]},{root:NOTE.G2,notes:[NOTE.G3,NOTE.As3,NOTE.D4]},{root:NOTE.A2,notes:[NOTE.A3,NOTE.C4,NOTE.E4]}],
+        melody:[NOTE.A4,NOTE.D5,NOTE.F5,NOTE.A5,NOTE.As5,NOTE.A5,NOTE.F5,NOTE.D5], leadType:'sawtooth', bassType:'sawtooth', drums:'epic' },
+    ];
+
+    class BGMusic {
+      constructor(ctx) {
+        this.ctx = ctx;
+        this.master = ctx.createGain();
+        this.master.gain.value = muted ? 0 : 0.22;
+        this.compressor = ctx.createDynamicsCompressor();
+        this.compressor.threshold.value = -12;
+        this.compressor.ratio.value = 4;
+        this.compressor.attack.value = 0.003;
+        this.compressor.release.value = 0.1;
+        this.master.connect(this.compressor);
+        this.compressor.connect(ctx.destination);
+        this.isPlaying = false;
+        this.bpm = 100;
+        this.styleId = 0;
+        this.beatNum = 0;
+        this.cutIdx = 0;
+        this.cutTimes = [];
+        this.beatFractions = null;
+        this.leadInSec = 1.8;
+        this.introBars = 0;
+        this.perfToAudioOffset = 0;
+        this.gridStartTime = 0;
+        this.timer = null;
+      }
+      start(bpm, styleId, beatFractions, leadInMs, introBars) {
+        this.stop();
+        this.bpm = bpm;
+        this.styleId = styleId || 0;
+        this.isPlaying = true;
+        this.beatFractions = beatFractions || [0, 1, 2, 3];
+        this.leadInSec = (leadInMs || 1800) / 1000;
+        this.introBars = introBars || 0;
+        this.beatDur = 60 / bpm;
+
+        // Capture time offset between performance.now() and audioCtx.currentTime
+        const tPerf = performance.now();
+        const tAudio = this.ctx.currentTime;
+        this.perfToAudioOffset = tAudio - tPerf / 1000;
+
+        // Musical grid starts after the visual lead-in (beat 0 = first downbeat)
+        this.gridStartTime = tAudio + this.leadInSec;
+
+        // Cut times are offset by introBars so BGM plays intro bars before first cut
+        const introOffsetSec = this.introBars * 4 * this.beatDur;
+        this.cutTimes = this.beatFractions.map(f => this.gridStartTime + introOffsetSec + f * this.beatDur);
+        this.cutIdx = 0;
+
+        // Musical beats start from the grid start (bar 0 = intro bar if introBars > 0)
+        this.nextBeatTime = this.gridStartTime;
+        this.beatNum = 0;
+
+        this.schedule();
+      }
+      stop() {
+        this.isPlaying = false;
+        if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+      }
+      setMuted(m) { this.master.gain.value = m ? 0 : 0.22; }
+      schedule() {
+        if (!this.isPlaying) return;
+        const lookahead = 0.15;
+
+        // Schedule regular musical grid beats (pads, hi-hats, arps, snare/clap — NO kick)
+        while (this.nextBeatTime < this.ctx.currentTime + lookahead) {
+          if (this.nextBeatTime > this.ctx.currentTime - 0.05) {
+            this.scheduleMusicalBeat(this.beatNum, this.nextBeatTime);
+          }
+          this.beatNum++;
+          this.nextBeatTime += this.beatDur;
+        }
+
+        // Schedule cut accents (kick + bass + melody + chord stab at exact cut times)
+        while (this.cutIdx < this.cutTimes.length && this.cutTimes[this.cutIdx] < this.ctx.currentTime + lookahead) {
+          if (this.cutTimes[this.cutIdx] > this.ctx.currentTime - 0.05) {
+            this.scheduleCutAccent(this.cutIdx, this.cutTimes[this.cutIdx]);
+          }
+          this.cutIdx++;
+        }
+
+        this.timer = setTimeout(() => this.schedule(), 25);
+      }
+      // Regular musical bed — plays between cut accents
+      scheduleMusicalBeat(beatNum, time) {
+        const style = MUSIC_STYLES[this.styleId % MUSIC_STYLES.length];
+        const bar = Math.floor(beatNum / 4);
+        const beatInBar = beatNum % 4;
+        const chord = style.chords[bar % style.chords.length];
+
+        // Chord pad on beat 1 of each bar
+        if (beatInBar === 0) {
+          chord.notes.forEach(f => this.playPad(f, time, this.beatDur * 3.8, 0.04));
+          if (style.drums === 'epic' && bar % 2 === 0) this.playCrash(time);
+        }
+
+        // Light bass on every beat (keeps the groove going between cuts)
+        this.playBass(chord.root, time, this.beatDur * 0.5, 0.08);
+
+        // Hi-hat on every beat + off-beat (8th notes)
+        this.playHiHat(time, 0.025);
+        this.playHiHat(time + this.beatDur * 0.5, 0.018);
+
+        // Arpeggiator on off-beats
+        const arpIdx = beatNum % chord.notes.length;
+        this.playArp(chord.notes[arpIdx] * 2, time + this.beatDur * 0.5, this.beatDur * 0.3, 0.04);
+
+        // Snare/clap from drum pattern (NO kick — kicks are reserved for cut accents)
+        const drums = DRUM_PATTERNS[style.drums];
+        if (drums.snare[beatInBar]) this.playSnare(time);
+        if (drums.clap && drums.clap[beatInBar]) this.playClap(time);
+        if (drums.oh[beatInBar]) this.playOpenHat(time + this.beatDur * 0.5);
+      }
+      // Strong accent at each cut time — this is where the music "hits"
+      scheduleCutAccent(cutIdx, time) {
+        const style = MUSIC_STYLES[this.styleId % MUSIC_STYLES.length];
+        // Chord based on which musical bar this cut falls in (account for intro bars)
+        const beatFraction = this.beatFractions[cutIdx] || 0;
+        const actualBeat = beatFraction + this.introBars * 4;
+        const bar = Math.floor(actualBeat / 4);
+        const chord = style.chords[bar % style.chords.length];
+
+        // Strong kick — the main pulse follows the cut rhythm
+        this.playKick(time);
+
+        // Strong bass on cut
+        this.playBass(chord.root, time, this.beatDur * 0.9, 0.22);
+
+        // Melody note on cut
+        const mNote = style.melody[cutIdx % style.melody.length];
+        if (mNote) this.playLead(mNote, time, this.beatDur * 0.8, 0.13);
+
+        // Chord stab — short percussive hit
+        chord.notes.forEach(f => this.playStab(f, time, this.beatDur * 0.12, 0.05));
+      }
+      playLead(freq, time, dur, vol) {
+        const style = MUSIC_STYLES[this.styleId % MUSIC_STYLES.length];
+        const osc1 = this.ctx.createOscillator(), osc2 = this.ctx.createOscillator();
+        osc1.type = style.leadType; osc2.type = style.leadType;
+        osc1.frequency.value = freq; osc2.frequency.value = freq * 1.006;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(3500, time);
+        filter.frequency.exponentialRampToValueAtTime(800, time + dur);
+        filter.Q.value = 3;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.01);
+        gain.gain.setValueAtTime(vol * 0.7, time + dur * 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc1.connect(filter); osc2.connect(filter);
+        filter.connect(gain); gain.connect(this.master);
+        osc1.start(time); osc1.stop(time + dur);
+        osc2.start(time); osc2.stop(time + dur);
+      }
+      playBass(freq, time, dur, vol) {
+        const style = MUSIC_STYLES[this.styleId % MUSIC_STYLES.length];
+        const osc = this.ctx.createOscillator();
+        osc.type = style.bassType; osc.frequency.value = freq;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(600, time);
+        filter.frequency.exponentialRampToValueAtTime(150, time + dur);
+        filter.Q.value = 4;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(filter); filter.connect(gain); gain.connect(this.master);
+        osc.start(time); osc.stop(time + dur);
+      }
+      playPad(freq, time, dur, vol) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.1);
+        gain.gain.setValueAtTime(vol, time + dur * 0.7);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(time); osc.stop(time + dur);
+      }
+      playArp(freq, time, dur, vol) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'triangle'; osc.frequency.value = freq;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(time); osc.stop(time + dur);
+      }
+      playStab(freq, time, dur, vol) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = freq;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 2500;
+        filter.Q.value = 2;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(filter); filter.connect(gain); gain.connect(this.master);
+        osc.start(time); osc.stop(time + dur);
+      }
+      playHiHat(time, vol) {
+        vol = vol || 0.03;
+        const bs = Math.max(1, Math.floor(this.ctx.sampleRate * 0.03));
+        const buf = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bs; i++) d[i] = (Math.random()*2-1)*(1-i/bs);
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const filt = this.ctx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=8000;
+        const gain = this.ctx.createGain(); gain.gain.value=vol;
+        src.connect(filt); filt.connect(gain); gain.connect(this.master);
+        src.start(time);
+      }
+      playOpenHat(time) {
+        const bs = Math.max(1, Math.floor(this.ctx.sampleRate * 0.15));
+        const buf = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bs; i++) d[i] = (Math.random()*2-1)*(1-i/bs)*0.5;
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const filt = this.ctx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=7000;
+        const gain = this.ctx.createGain(); gain.gain.value=0.05;
+        src.connect(filt); filt.connect(gain); gain.connect(this.master);
+        src.start(time);
+      }
+      playKick(time) {
+        const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(120, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+        gain.gain.setValueAtTime(0.25, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(time); osc.stop(time + 0.18);
+      }
+      playSnare(time) {
+        const bs = Math.max(1, Math.floor(this.ctx.sampleRate * 0.1));
+        const buf = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bs; i++) d[i] = (Math.random()*2-1)*(1-i/bs);
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const filt = this.ctx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=2000; filt.Q.value=1;
+        const gain = this.ctx.createGain(); gain.gain.value=0.12;
+        src.connect(filt); filt.connect(gain); gain.connect(this.master);
+        src.start(time);
+        const osc = this.ctx.createOscillator(), ogain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(200, time);
+        osc.frequency.exponentialRampToValueAtTime(100, time + 0.05);
+        ogain.gain.setValueAtTime(0.08, time);
+        ogain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+        osc.connect(ogain); ogain.connect(this.master);
+        osc.start(time); osc.stop(time + 0.08);
+      }
+      playClap(time) {
+        for (let i = 0; i < 3; i++) {
+          const t = time + i * 0.01;
+          const bs = Math.max(1, Math.floor(this.ctx.sampleRate * 0.03));
+          const buf = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let j = 0; j < bs; j++) d[j] = (Math.random()*2-1)*(1-j/bs);
+          const src = this.ctx.createBufferSource(); src.buffer = buf;
+          const filt = this.ctx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=1500; filt.Q.value=0.8;
+          const gain = this.ctx.createGain(); gain.gain.value=0.06;
+          src.connect(filt); filt.connect(gain); gain.connect(this.master);
+          src.start(t);
+        }
+      }
+      playCrash(time) {
+        const bs = Math.max(1, Math.floor(this.ctx.sampleRate * 0.8));
+        const buf = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bs; i++) d[i] = (Math.random()*2-1)*(1-i/bs)*0.5;
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const filt = this.ctx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=5000;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.12, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+        src.connect(filt); filt.connect(gain); gain.connect(this.master);
+        src.start(time);
+      }
+    }
+
+    // ==================== GAME STATE ====================
+    const game = {
+      phase: 'start', level: 1, score: 0, combo: 0, maxCombo: 0,
+      health: 100, foodsCompleted: 0, currentFoodIndex: 0, currentFoodType: null,
+      beats: [], phaseStartTime: 0, phaseDuration: 0, keyHeld: false,
+      levelStats: { perfect:0, good:0, miss:0, total:0 },
+      unlockedLevels: [1], bestScores: {},
+      rafId: null, levelStartScore: 0, currentBPM: 0, currentPattern: null, levelPassed: false,
+      isFirstFoodInLevel: true,
+    };
+
+    // ==================== DOM ====================
+    const $ = (id) => document.getElementById(id);
+    const dom = {
+      game:$('game'), scoreVal:$('scoreVal'), levelVal:$('levelVal'), bpmVal:$('bpmVal'),
+      comboVal:$('comboVal'), comboItem:$('comboItem'), healthFill:$('healthFill'), progressDots:$('progressDots'),
+      chefDemo:$('chefDemo'), chefChar:$('chefChar'), demoFoodWrap:$('demoFoodWrap'), demoBeatTrack:$('demoBeatTrack'),
+      playArea:$('playArea'), foodContainer:$('foodContainer'), foodSvgWrap:$('foodSvgWrap'),
+      knifeContainer:$('knifeContainer'), userBeatTrack:$('userBeatTrack'),
+      phaseLabel:$('phaseLabel'), feedbackText:$('feedbackText'),
+      startScreen:$('startScreen'), startBtn:$('startBtn'),
+      levelSelectScreen:$('levelSelectScreen'), levelGrid:$('levelGrid'), backToStartBtn:$('backToStartBtn'),
+      resetProgressBtn:$('resetProgressBtn'),
+      levelCompleteScreen:$('levelCompleteScreen'), nextLevelBtn:$('nextLevelBtn'), backToMenuBtn:$('backToMenuBtn'),
+      gameOverScreen:$('gameOverScreen'), restartBtn:$('restartBtn'), goBackToMenuBtn:$('goBackToMenuBtn'),
+      victoryScreen:$('victoryScreen'), victoryRestartBtn:$('victoryRestartBtn'), victoryBackToMenuBtn:$('victoryBackToMenuBtn'),
+      muteBtn:$('muteBtn'), backBtn:$('backBtn'),
+    };
+
+    // ==================== FOOD SVG ====================
+    function createFoodSVG(foodType, sliceCount) {
+      const food = FOODS[foodType];
+      const parts = food.viewBox.split(' ');
+      const vw = parseInt(parts[parts.length-2]), vh = parseInt(parts[parts.length-1]);
+      const isVert = food.orientation === 'vertical';
+      let marks = '';
+      for (let i = 0; i < sliceCount; i++) {
+        if (isVert) {
+          const y = ((i+1)/(sliceCount+1)) * vh;
+          marks += `<line class="slice-mark" data-index="${i}" x1="${vw*0.08}" y1="${y}" x2="${vw*0.92}" y2="${y}" stroke="rgba(80,50,20,0.15)" stroke-width="2" stroke-dasharray="6,4"/>`;
+        } else {
+          const x = ((i+1)/(sliceCount+1)) * vw;
+          marks += `<line class="slice-mark" data-index="${i}" x1="${x}" y1="${vh*0.08}" x2="${x}" y2="${vh*0.92}" stroke="rgba(80,50,20,0.15)" stroke-width="2" stroke-dasharray="6,4"/>`;
+        }
+      }
+      return `<svg viewBox="${food.viewBox}" preserveAspectRatio="xMidYMid meet">${food.body(vw,vh)}${marks}</svg>`;
+    }
+
+    function revealSlice(container, index, sliceCount, foodType) {
+      const food = FOODS[foodType];
+      const isVert = food.orientation === 'vertical';
+      const marks = container.querySelectorAll('.slice-mark');
+      if (marks[index]) {
+        marks[index].setAttribute('stroke', '#5D3A1A');
+        marks[index].setAttribute('stroke-width', '3.5');
+        marks[index].setAttribute('stroke-dasharray', '0');
+        marks[index].classList.add('revealed');
+      }
+      // Slash effect
+      const slash = document.createElement('div');
+      if (isVert) {
+        slash.className = 'knife-slash-h';
+        slash.style.top = `${((index+1)/(sliceCount+1))*100}%`;
+      } else {
+        slash.className = 'knife-slash';
+        slash.style.left = `${((index+1)/(sliceCount+1))*100}%`;
+      }
+      container.appendChild(slash);
+      setTimeout(() => slash.remove(), 400);
+      // Particles
+      const colors = [food.color, '#FFF', '#FFA000'];
+      const posPercent = ((index+1)/(sliceCount+1))*100;
+      for (let i = 0; i < 6; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        if (isVert) { p.style.top = `${posPercent}%`; p.style.left = '50%'; }
+        else { p.style.left = `${posPercent}%`; p.style.top = '50%'; }
+        p.style.background = colors[i % colors.length];
+        const angle = (i/6)*Math.PI*2, dist = 25+Math.random()*20;
+        p.style.setProperty('--dx', `${Math.cos(angle)*dist}px`);
+        p.style.setProperty('--dy', `${Math.sin(angle)*dist}px`);
+        container.appendChild(p);
+        setTimeout(() => p.remove(), 500);
+      }
+    }
+
+    function animateKnife(foodType, beatIndex, totalBeats) {
+      const isVert = FOODS[foodType].orientation === 'vertical';
+      const knife = dom.knifeContainer;
+      const posPercent = ((beatIndex + 1) / (totalBeats + 1)) * 100;
+      if (isVert) {
+        knife.style.left = '50%';
+        knife.style.top = posPercent + '%';
+      } else {
+        knife.style.left = posPercent + '%';
+        knife.style.top = '50%';
+      }
+      knife.classList.remove('cut-h', 'cut-v');
+      void knife.offsetWidth;
+      knife.classList.add(isVert ? 'cut-v' : 'cut-h');
+    }
+
+    // ==================== BEAT TRACK ====================
+    function createBeatElements(trackEl, beats, type) {
+      trackEl.querySelectorAll('.beat').forEach(b => b.remove());
+      beats.forEach((beat, i) => {
+        const el = document.createElement('div');
+        el.className = `beat ${type}`;
+        el.innerHTML = `<div class="beat-inner">${i+1}</div>`;
+        beat.element = el;
+        trackEl.appendChild(el);
+      });
+    }
+
+    function updateBeatPositions(beats, elapsed) {
+      const HIT=12, START=100, RANGE=START-HIT;
+      for (const beat of beats) {
+        if (!beat.element) continue;
+        const t = beat.time - elapsed;
+        if (t > LOOKAHEAD) { beat.element.style.display='none'; continue; }
+        beat.element.style.display = 'block';
+        let pos;
+        if (t >= 0) { pos = HIT + (t/LOOKAHEAD)*RANGE; }
+        else { pos = Math.max(-15, HIT - (Math.abs(t)/300)*(HIT+15)); }
+        beat.element.style.left = `${pos}%`;
+        if (beat.hit && !beat.element.classList.contains('hit')) beat.element.classList.add('hit');
+        if (beat.missed && !beat.element.classList.contains('missed')) beat.element.classList.add('missed');
+      }
+    }
+
+    function clearBeats(trackEl) { trackEl.querySelectorAll('.beat').forEach(b => b.remove()); }
+
+    // ==================== LEVEL CONFIG ====================
+    function getLevelConfig(level) {
+      if (level <= LEVELS.length) return LEVELS[level-1];
+      const base = LEVELS[(level-1) % LEVELS.length];
+      const speedMult = 1 - Math.min(0.4, (level-LEVELS.length)*0.05);
+      return { ...base, bpm: Math.round(base.bpm / speedMult) };
+    }
+
+    function buildBeats(beatFractions, bpm, introBars) {
+      const msPerBeat = 60000 / bpm;
+      const introOffsetMs = (introBars || 0) * 4 * msPerBeat;
+      return beatFractions.map((f,i) => ({ time: Math.round(f * msPerBeat) + LEAD_IN + introOffsetMs, index:i, hit:false, missed:false, result:null, element:null }));
+    }
+
+    function getEffectiveBPM(level, foodIndex) {
+      const config = getLevelConfig(level);
+      const baseBpm = config.bpm;
+      let nextBpm;
+      if (level < LEVELS.length) {
+        nextBpm = LEVELS[level].bpm;
+        if (nextBpm <= baseBpm) nextBpm = baseBpm + 10;
+      } else {
+        nextBpm = baseBpm + 15;
+      }
+      const numFoods = config.foods;
+      const ratio = numFoods > 1 ? foodIndex / numFoods : 0;
+      return Math.round(baseBpm + (nextBpm - baseBpm) * ratio);
+    }
+
+    function getScaledPattern(level, foodIndex) {
+      const config = getLevelConfig(level);
+      return config.patterns[foodIndex % config.patterns.length];
+    }
+
+    // ==================== UI ====================
+    function updateHUD() {
+      dom.scoreVal.textContent = game.score;
+      dom.levelVal.textContent = game.level;
+      dom.comboVal.textContent = game.combo;
+      dom.healthFill.style.width = `${Math.max(0, game.health)}%`;
+      if (game.combo > 0) {
+        dom.comboItem.classList.add('bump');
+        setTimeout(() => dom.comboItem.classList.remove('bump'), 200);
+      }
+    }
+
+    function updateProgressDots() {
+      const config = getLevelConfig(game.level);
+      let html = '';
+      for (let i = 0; i < config.foods; i++) {
+        let cls = 'progress-dot';
+        if (i < game.foodsCompleted) cls += ' completed';
+        else if (i === game.foodsCompleted) cls += ' current';
+        html += `<div class="${cls}"></div>`;
+      }
+      dom.progressDots.innerHTML = html;
+    }
+
+    function showPhaseLabel(text, type='', duration=1500) {
+      dom.phaseLabel.textContent = text;
+      dom.phaseLabel.className = `phase-label show ${type}`;
+      if (duration > 0) setTimeout(() => dom.phaseLabel.classList.remove('show'), duration);
+    }
+
+    function showFeedback(type) {
+      const texts = { perfect:'完美!', good:'不错!', miss:'错过!' };
+      dom.feedbackText.textContent = texts[type];
+      dom.feedbackText.className = `feedback-text show ${type}`;
+      dom.feedbackText.style.left = '50%'; dom.feedbackText.style.top = '40%';
+      setTimeout(() => dom.feedbackText.classList.remove('show'), 600);
+    }
+
+    function showScorePopup(points, x, y) {
+      const p = document.createElement('div');
+      p.className = 'score-popup'; p.textContent = `+${points}`;
+      p.style.left = `${x}px`; p.style.top = `${y}px`;
+      dom.game.appendChild(p);
+      setTimeout(() => p.remove(), 800);
+    }
+
+    function screenShake() {
+      dom.game.classList.add('shake');
+      setTimeout(() => dom.game.classList.remove('shake'), 300);
+    }
+
+    function spawnConfetti() {
+      const colors = ['#FF6B6B','#4ECDC4','#FFE66D','#A8E6CF','#FF8C42','#C7B8EA'];
+      for (let i = 0; i < 40; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = `${Math.random()*100}%`;
+        c.style.background = colors[Math.floor(Math.random()*colors.length)];
+        c.style.animationDelay = `${Math.random()*0.5}s`;
+        c.style.animationDuration = `${1.5+Math.random()}s`;
+        if (Math.random() > 0.5) c.style.borderRadius = '50%';
+        dom.game.appendChild(c);
+        setTimeout(() => c.remove(), 3000);
+      }
+    }
+
+    // ==================== LEVEL SELECT ====================
+    function renderLevelGrid() {
+      let html = '';
+      for (let i = 1; i <= LEVELS.length; i++) {
+        const config = LEVELS[i-1];
+        const food = FOODS[config.food];
+        const unlocked = game.unlockedLevels.includes(i);
+        const completed = game.bestScores[i] !== undefined;
+        const bestScore = game.bestScores[i] || 0;
+        html += `<div class="level-card ${unlocked?'':'locked'} ${completed?'completed':''}" data-level="${i}">`;
+        html += `<div class="level-card-num">第 ${i} 关</div>`;
+        html += `<div class="level-card-emoji">${createFoodSVG(config.food, 0)}</div>`;
+        html += `<div class="level-card-name">${config.name}</div>`;
+        html += `<div class="level-card-difficulty">${getDifficulty(config.bpm)} ${config.bpm}BPM</div>`;
+        if (completed) html += `<div class="level-card-score">最高: ${bestScore}</div><div class="level-card-check">✅</div>`;
+        if (!unlocked) html += `<div class="level-card-lock">🔒</div>`;
+        html += `</div>`;
+      }
+      dom.levelGrid.innerHTML = html;
+      // Attach click handlers
+      dom.levelGrid.querySelectorAll('.level-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (card.classList.contains('locked')) return;
+          const level = parseInt(card.dataset.level);
+          dom.levelSelectScreen.classList.add('hidden');
+          game.score = 0; game.combo = 0; game.maxCombo = 0; game.health = 100;
+          startLevel(level);
+        });
+      });
+    }
+
+    function showLevelSelect() {
+      if (bgMusic) bgMusic.stop();
+      renderLevelGrid();
+      dom.startScreen.classList.add('hidden');
+      dom.levelCompleteScreen.classList.add('hidden');
+      dom.gameOverScreen.classList.add('hidden');
+      dom.victoryScreen.classList.add('hidden');
+      dom.levelSelectScreen.classList.remove('hidden');
+    }
+
+    // ==================== LOCALSTORAGE ====================
+    function saveProgress() {
+      try {
+        localStorage.setItem('kitchenRhythm_progress', JSON.stringify({
+          unlockedLevels: game.unlockedLevels,
+          bestScores: game.bestScores,
+        }));
+      } catch(e) {}
+    }
+
+    function loadProgress() {
+      try {
+        const saved = localStorage.getItem('kitchenRhythm_progress');
+        if (saved) {
+          const data = JSON.parse(saved);
+          game.unlockedLevels = data.unlockedLevels || [1];
+          game.bestScores = data.bestScores || {};
+        }
+      } catch(e) {}
+    }
+
+    // ==================== GAME PHASES ====================
+    function startGame() {
+      initAudio();
+      if (!bgMusic) bgMusic = new BGMusic(audioCtx);
+      game.score = 0; game.combo = 0; game.maxCombo = 0; game.health = 100;
+      updateHUD();
+      startLevel(game.level);
+    }
+
+    function startLevel(levelNum) {
+      game.level = levelNum;
+      game.foodsCompleted = 0; game.currentFoodIndex = 0;
+      game.levelStats = { perfect:0, good:0, miss:0, total:0 };
+      game.levelStartScore = game.score;
+      const config = getLevelConfig(game.level);
+      dom.bpmVal.textContent = config.bpm;
+      updateProgressDots();
+      showPhaseLabel(`第 ${game.level} 关: ${config.name}`, '', 2000);
+      game.phase = 'levelIntro';
+      game.phaseStartTime = performance.now();
+      game.phaseDuration = 2000;
+    }
+
+    function startFoodSlideIn() {
+      const config = getLevelConfig(game.level);
+      game.isFirstFoodInLevel = (game.currentFoodIndex === 0);
+      game.currentFoodType = config.food;
+      game.currentBPM = getEffectiveBPM(game.level, game.currentFoodIndex);
+      game.currentPattern = getScaledPattern(game.level, game.currentFoodIndex);
+      dom.bpmVal.textContent = game.currentBPM;
+      const introBars = game.isFirstFoodInLevel ? 1 : 0;
+      game.beats = buildBeats(game.currentPattern, game.currentBPM, introBars);
+      dom.foodSvgWrap.innerHTML = createFoodSVG(config.food, game.currentPattern.length);
+      dom.foodContainer.className = 'food-container offscreen-right';
+      dom.demoFoodWrap.innerHTML = createFoodSVG(config.food, game.currentPattern.length);
+      clearBeats(dom.demoBeatTrack); clearBeats(dom.userBeatTrack);
+      dom.knifeContainer.classList.remove('visible');
+      dom.knifeContainer.style.left = ''; dom.knifeContainer.style.top = '';
+      requestAnimationFrame(() => { dom.foodContainer.className = 'food-container center'; });
+      game.phase = 'slidingIn';
+      game.phaseStartTime = performance.now();
+      game.phaseDuration = SLIDE_DURATION + 200;
+    }
+
+    function startDemoPhase() {
+      const config = getLevelConfig(game.level);
+      const introBars = game.isFirstFoodInLevel ? 1 : 0;
+      game.beats = buildBeats(game.currentPattern, game.currentBPM, introBars);
+      createBeatElements(dom.demoBeatTrack, game.beats, 'demo');
+      dom.chefDemo.classList.remove('dimmed');
+      dom.playArea.classList.add('dimmed');
+      if (bgMusic) bgMusic.start(game.currentBPM, game.level - 1, game.currentPattern, LEAD_IN, introBars);
+      if (introBars > 0) {
+        const introMs = Math.round(introBars * 4 * (60000 / game.currentBPM)) + LEAD_IN;
+        showPhaseLabel('🎵 听节奏...', 'demo', introMs);
+        setTimeout(() => { if (game.phase === 'demo') showPhaseLabel('看大厨示范!', 'demo', 1200); }, introMs);
+      } else {
+        showPhaseLabel('看大厨示范!', 'demo', 1000);
+      }
+      game.phase = 'demo';
+      game.phaseStartTime = performance.now();
+      const demoBuffer = game.isFirstFoodInLevel ? DEMO_BUFFER : 200;
+      game.phaseDuration = game.beats[game.beats.length-1].time + MISS_WINDOW + demoBuffer;
+    }
+
+    function startTransition() {
+      if (!game.isFirstFoodInLevel) {
+        startUserPhase();
+        return;
+      }
+      clearBeats(dom.demoBeatTrack);
+      const config = getLevelConfig(game.level);
+      dom.demoFoodWrap.innerHTML = createFoodSVG(config.food, game.currentPattern.length);
+      dom.chefDemo.classList.add('dimmed');
+      dom.playArea.classList.remove('dimmed');
+      showPhaseLabel('该你了!', 'user', TRANSITION_BUFFER);
+      game.phase = 'transition';
+      game.phaseStartTime = performance.now();
+      game.phaseDuration = TRANSITION_BUFFER;
+    }
+
+    function startUserPhase() {
+      const config = getLevelConfig(game.level);
+      const introBars = game.isFirstFoodInLevel ? 1 : 0;
+      game.beats = buildBeats(game.currentPattern, game.currentBPM, introBars);
+      createBeatElements(dom.userBeatTrack, game.beats, 'user');
+      dom.foodSvgWrap.innerHTML = createFoodSVG(config.food, game.currentPattern.length);
+      dom.chefDemo.classList.add('dimmed');
+      dom.playArea.classList.remove('dimmed');
+      dom.knifeContainer.classList.add('visible');
+      const _isV = FOODS[config.food].orientation === 'vertical';
+      const _firstPos = (1 / (game.currentPattern.length + 1)) * 100;
+      if (_isV) { dom.knifeContainer.style.left = '50%'; dom.knifeContainer.style.top = _firstPos + '%'; }
+      else { dom.knifeContainer.style.left = _firstPos + '%'; dom.knifeContainer.style.top = '50%'; }
+      game.phase = 'userTurn';
+      game.phaseStartTime = performance.now();
+      if (bgMusic) bgMusic.start(game.currentBPM, game.level - 1, game.currentPattern, LEAD_IN, introBars);
+      if (introBars > 0) {
+        const introMs = Math.round(introBars * 4 * (60000 / game.currentBPM)) + LEAD_IN;
+        showPhaseLabel('🎵 听节奏...', 'user', introMs);
+        setTimeout(() => { if (game.phase === 'userTurn') showPhaseLabel('该你了!', 'user', 1000); }, introMs);
+      } else {
+        showPhaseLabel('该你了!', 'user', 800);
+      }
+      game.phaseDuration = game.beats[game.beats.length-1].time + MISS_WINDOW + 300;
+    }
+
+    function completeFood() {
+      game.phase = 'foodComplete';
+      game.phaseStartTime = performance.now();
+      game.phaseDuration = FOOD_COMPLETE_DELAY;
+      dom.knifeContainer.classList.remove('visible');
+      const allPerfect = game.beats.every(b => b.result === 'perfect');
+      if (allPerfect && game.beats.length > 0) {
+        showFeedback('perfect');
+        playLevelComplete();
+        game.score += 500;
+        updateHUD();
+      }
+    }
+
+    function slideOutFood() {
+      dom.foodContainer.className = 'food-container offscreen-left';
+      game.phase = 'slidingOut';
+      game.phaseStartTime = performance.now();
+      game.phaseDuration = SLIDE_DURATION + 100;
+    }
+
+    function nextFoodOrLevel() {
+      const config = getLevelConfig(game.level);
+      game.foodsCompleted++; game.currentFoodIndex++;
+      updateProgressDots(); updateHUD();
+      if (game.foodsCompleted >= config.foods) {
+        levelComplete();
+      } else {
+        startFoodSlideIn();
+      }
+    }
+
+    function levelComplete() {
+      if (bgMusic) bgMusic.stop();
+      const accuracy = game.levelStats.total > 0
+        ? Math.round(((game.levelStats.perfect + game.levelStats.good*0.5) / game.levelStats.total) * 100) : 0;
+      game.levelPassed = accuracy >= 70;
+      if (game.levelPassed) {
+        playLevelComplete();
+        // Unlock next level
+        const nextLevel = game.level + 1;
+        if (nextLevel <= LEVELS.length && !game.unlockedLevels.includes(nextLevel)) {
+          game.unlockedLevels.push(nextLevel);
+        }
+        // Save best score
+        const levelScore = game.score - game.levelStartScore;
+        if (!game.bestScores[game.level] || game.bestScores[game.level] < levelScore) {
+          game.bestScores[game.level] = levelScore;
+        }
+        saveProgress();
+        spawnConfetti();
+      }
+      $('lcLevel').textContent = `第 ${game.level} 关`;
+      $('lcScore').textContent = game.score;
+      $('lcCombo').textContent = game.maxCombo;
+      $('lcPerfect').textContent = game.levelStats.perfect;
+      const lcAccEl = $('lcAccuracy');
+      lcAccEl.textContent = `${accuracy}%`;
+      lcAccEl.style.color = accuracy >= 70 ? 'var(--accent-light)' : 'var(--miss-color)';
+      const titleEl = dom.levelCompleteScreen.querySelector('h1');
+      if (game.levelPassed) {
+        titleEl.textContent = '关卡完成！';
+        dom.nextLevelBtn.textContent = game.level < LEVELS.length ? '下一关' : '完成';
+      } else {
+        titleEl.textContent = '命中率不足 70%！';
+        dom.nextLevelBtn.textContent = '重新挑战';
+      }
+      dom.nextLevelBtn.style.display = '';
+      game.phase = 'levelComplete';
+      dom.levelCompleteScreen.classList.remove('hidden');
+    }
+
+    function nextLevel() {
+      dom.levelCompleteScreen.classList.add('hidden');
+      game.level++;
+      if (game.level > LEVELS.length) {
+        game.phase = 'victory';
+        $('vScore').textContent = game.score;
+        $('vCombo').textContent = game.maxCombo;
+        dom.victoryScreen.classList.remove('hidden');
+        spawnConfetti();
+        return;
+      }
+      startLevel(game.level);
+    }
+
+    function gameOver() {
+      if (bgMusic) bgMusic.stop();
+      game.phase = 'gameOver';
+      $('goScore').textContent = game.score;
+      $('goLevel').textContent = game.level;
+      dom.gameOverScreen.classList.remove('hidden');
+    }
+
+    // ==================== INPUT ====================
+    function handleInput() {
+      if (game.phase !== 'userTurn') return;
+      const elapsed = performance.now() - game.phaseStartTime;
+      let closest = null, closestDist = Infinity;
+      for (const beat of game.beats) {
+        if (beat.hit || beat.missed) continue;
+        const d = Math.abs(beat.time - elapsed);
+        if (d < closestDist) { closestDist = d; closest = beat; }
+      }
+      if (closest && closestDist <= GOOD_WINDOW) {
+        closest.hit = true;
+        game.levelStats.total++;
+        if (closestDist <= PERFECT_WINDOW) {
+          closest.result = 'perfect';
+          game.score += Math.round(100 * (1 + game.combo * 0.1));
+          game.combo++; game.health = Math.min(100, game.health + 5);
+          game.levelStats.perfect++;
+          showFeedback('perfect'); playPerfect();
+        } else {
+          closest.result = 'good';
+          game.score += Math.round(50 * (1 + game.combo * 0.1));
+          game.combo++; game.health = Math.min(100, game.health + 2);
+          game.levelStats.good++;
+          showFeedback('good'); playGood();
+        }
+        game.maxCombo = Math.max(game.maxCombo, game.combo);
+        playSlice();
+        revealSlice(dom.foodSvgWrap, closest.index, game.beats.length, game.currentFoodType);
+        animateKnife(game.currentFoodType, closest.index, game.beats.length);
+        dom.foodContainer.classList.add('food-pulse');
+        setTimeout(() => dom.foodContainer.classList.remove('food-pulse'), 200);
+        const rect = dom.foodSvgWrap.getBoundingClientRect();
+        const posPercent = ((closest.index+1)/(game.beats.length+1))*100;
+        showScorePopup(Math.round((closest.result==='perfect'?100:50) * (1+(game.combo-1)*0.1)),
+          rect.left + (posPercent/100)*rect.width, rect.top + rect.height/2);
+      } else {
+        game.combo = 0; game.health = Math.max(0, game.health - 8);
+        showFeedback('miss'); playMiss();
+      }
+      updateHUD();
+      if (game.health <= 0) { gameOver(); return; }
+      if (game.beats.every(b => b.hit || b.missed)) completeFood();
+    }
+
+    // ==================== DEMO AUTO-HIT ====================
+    function checkDemoAutoHits(elapsed) {
+      for (const beat of game.beats) {
+        if (beat.hit || beat.missed) continue;
+        if (elapsed >= beat.time) {
+          beat.hit = true; beat.result = 'perfect';
+          playTick(600 + beat.index*50, 0.12, 0.05);
+          playSlice();
+          dom.chefChar.classList.add('cutting');
+          setTimeout(() => dom.chefChar.classList.remove('cutting'), 250);
+          revealSlice(dom.demoFoodWrap, beat.index, game.beats.length, game.currentFoodType);
+          const demoSvg = dom.demoFoodWrap.querySelector('svg');
+          if (demoSvg) { demoSvg.style.transform = 'scale(1.05)'; setTimeout(() => { if(demoSvg) demoSvg.style.transform = ''; }, 200); }
+        }
+      }
+    }
+
+    // ==================== MISS CHECK ====================
+    function checkUserMisses(elapsed) {
+      for (const beat of game.beats) {
+        if (beat.hit || beat.missed) continue;
+        if (elapsed > beat.time + MISS_WINDOW) {
+          beat.missed = true; beat.result = 'miss';
+          game.combo = 0; game.health = Math.max(0, game.health - 12);
+          game.levelStats.miss++; game.levelStats.total++;
+          showFeedback('miss'); playMiss(); screenShake(); updateHUD();
+        }
+      }
+      if (game.health <= 0) { gameOver(); return; }
+      if (game.beats.every(b => b.hit || b.missed)) completeFood();
+    }
+
+    // ==================== GAME LOOP ====================
+    function gameLoop() {
+      const now = performance.now();
+      const elapsed = now - game.phaseStartTime;
+      switch (game.phase) {
+        case 'levelIntro':
+          if (elapsed >= game.phaseDuration) startFoodSlideIn();
+          break;
+        case 'slidingIn':
+          if (elapsed >= game.phaseDuration) startDemoPhase();
+          break;
+        case 'demo':
+          updateBeatPositions(game.beats, elapsed);
+          checkDemoAutoHits(elapsed);
+          if (elapsed >= game.phaseDuration) startTransition();
+          break;
+        case 'transition':
+          if (elapsed >= game.phaseDuration) startUserPhase();
+          break;
+        case 'userTurn':
+          updateBeatPositions(game.beats, elapsed);
+          checkUserMisses(elapsed);
+          if (elapsed >= game.phaseDuration && game.phase === 'userTurn') {
+            if (!game.beats.every(b => b.hit || b.missed)) {
+              for (const beat of game.beats) {
+                if (!beat.hit && !beat.missed) {
+                  beat.missed = true; game.combo = 0;
+                  game.health = Math.max(0, game.health - 10);
+                  game.levelStats.miss++; game.levelStats.total++;
+                }
+              }
+              updateHUD();
+              if (game.health <= 0) { gameOver(); break; }
+            }
+            completeFood();
+          }
+          break;
+        case 'foodComplete':
+          if (elapsed >= game.phaseDuration) slideOutFood();
+          break;
+        case 'slidingOut':
+          if (elapsed >= game.phaseDuration) nextFoodOrLevel();
+          break;
+      }
+      game.rafId = requestAnimationFrame(gameLoop);
+    }
+
+    // ==================== EVENTS ====================
+    dom.nextLevelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (game.levelPassed) {
+        nextLevel();
+      } else {
+        dom.levelCompleteScreen.classList.add('hidden');
+        game.score = game.levelStartScore; game.combo = 0; game.maxCombo = 0; game.health = 100;
+        startLevel(game.level);
+      }
+    });
+    dom.backToMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.levelCompleteScreen.classList.add('hidden'); showLevelSelect(); });
+    dom.restartBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.gameOverScreen.classList.add('hidden'); game.score = 0; game.combo = 0; game.maxCombo = 0; game.health = 100; startLevel(game.level); });
+    dom.goBackToMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.gameOverScreen.classList.add('hidden'); showLevelSelect(); });
+    dom.victoryRestartBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.victoryScreen.classList.add('hidden'); game.level = 1; startGame(); });
+    dom.victoryBackToMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.victoryScreen.classList.add('hidden'); showLevelSelect(); });
+    dom.backToStartBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.levelSelectScreen.classList.add('hidden'); dom.startScreen.classList.remove('hidden'); });
+
+    dom.resetProgressBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!confirm('确定要重置所有进度吗？这将清除所有已解锁关卡和最高分记录！')) return;
+      game.unlockedLevels = [1];
+      game.bestScores = {};
+      try { localStorage.removeItem('kitchenRhythm_progress'); } catch(err) {}
+      renderLevelGrid();
+    });
+
+    dom.muteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      muted = !muted;
+      dom.muteBtn.textContent = muted ? '🔇' : '🔊';
+      if (bgMusic) bgMusic.setMuted(muted);
+    });
+
+    dom.backBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (bgMusic) bgMusic.stop();
+      game.phase = 'idle';
+      dom.levelCompleteScreen.classList.add('hidden');
+      dom.gameOverScreen.classList.add('hidden');
+      dom.victoryScreen.classList.add('hidden');
+      showLevelSelect();
+    });
+
+    // Modify start screen to show level select
+    dom.startBtn.textContent = '选择关卡';
+    dom.startBtn.addEventListener('click', (e) => { e.stopPropagation(); initAudio(); if (!bgMusic) bgMusic = new BGMusic(audioCtx); showLevelSelect(); });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      if (e.code === 'Space') e.preventDefault();
+      if (e.code === 'Escape') {
+        if (!dom.startScreen.classList.contains('hidden') || !dom.levelSelectScreen.classList.contains('hidden')) return;
+        if (bgMusic) bgMusic.stop();
+        game.phase = 'idle';
+        dom.levelCompleteScreen.classList.add('hidden');
+        dom.gameOverScreen.classList.add('hidden');
+        dom.victoryScreen.classList.add('hidden');
+        showLevelSelect();
+        return;
+      }
+      if (e.code === 'Enter' || e.code === 'Space') {
+        if (!dom.startScreen.classList.contains('hidden')) { initAudio(); if(!bgMusic) bgMusic=new BGMusic(audioCtx); showLevelSelect(); return; }
+        if (!dom.levelSelectScreen.classList.contains('hidden')) return;
+        if (!dom.levelCompleteScreen.classList.contains('hidden')) {
+          if (game.levelPassed) { nextLevel(); }
+          else { dom.levelCompleteScreen.classList.add('hidden'); game.score = game.levelStartScore; game.combo = 0; game.maxCombo = 0; game.health = 100; startLevel(game.level); }
+          return;
+        }
+        if (!dom.gameOverScreen.classList.contains('hidden')) { dom.gameOverScreen.classList.add('hidden'); game.score = 0; game.combo = 0; game.maxCombo = 0; game.health = 100; startLevel(game.level); return; }
+        if (!dom.victoryScreen.classList.contains('hidden')) { dom.victoryScreen.classList.add('hidden'); game.level=1; startGame(); return; }
+      }
+      handleInput();
+    });
+
+    dom.game.addEventListener('click', (e) => {
+      if (e.target.closest('.btn') || e.target.closest('.mute-btn') || e.target.closest('.level-card') || e.target.closest('.overlay') || e.target.closest('.hud-back')) return;
+      handleInput();
+    });
+
+    dom.game.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.btn') || e.target.closest('.mute-btn') || e.target.closest('.level-card') || e.target.closest('.overlay') || e.target.closest('.hud-back')) return;
+      e.preventDefault(); handleInput();
+    }, { passive: false });
+
+    // ==================== INIT ====================
+    loadProgress();
+    updateHUD();
+    updateProgressDots();
+    game.rafId = requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
