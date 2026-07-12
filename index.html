@@ -239,6 +239,9 @@
       .utensil-rack { display:none; }
       .level-grid { grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; }
     }
+    #watermark { position:fixed; right:12px; bottom:12px; z-index:9999; opacity:0.35; }
+    #watermark a { color:#fff; font-size:12px; text-decoration:none; font-family:'PingFang SC','Microsoft YaHei',sans-serif; }
+    #watermark a:hover { opacity:0.8; }
   </style>
 </head>
 <body>
@@ -1784,5 +1787,6 @@
     updateProgressDots();
     game.rafId = requestAnimationFrame(gameLoop);
   </script>
+  <div id="watermark"><a href="https://github.com/hujingwen1025/Rhythm-Cook" target="_blank">由胡竞文制作，代码开源Github</a></div>
 </body>
 </html>
