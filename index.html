@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>厨房节奏大师 - Kitchen Rhythm Master</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+  <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -788,7 +790,7 @@
       constructor(ctx) {
         this.ctx = ctx;
         this.master = ctx.createGain();
-        this.master.gain.value = muted ? 0 : 0.22;
+        this.master.gain.value = muted ? 0 : 0.35;
         this.compressor = ctx.createDynamicsCompressor();
         this.compressor.threshold.value = -12;
         this.compressor.ratio.value = 4;
@@ -842,7 +844,7 @@
         this.isPlaying = false;
         if (this.timer) { clearTimeout(this.timer); this.timer = null; }
       }
-      setMuted(m) { this.master.gain.value = m ? 0 : 0.22; }
+      setMuted(m) { this.master.gain.value = m ? 0 : 0.35; }
       schedule() {
         if (!this.isPlaying) return;
         const lookahead = 0.15;
@@ -1446,6 +1448,7 @@
     }
 
     function startUserPhase() {
+      clearBeats(dom.userBeatTrack);
       const config = getLevelConfig(game.level);
       const introBars = game.isFirstFoodInLevel ? 1 : 0;
       game.beats = buildBeats(game.currentPattern, game.currentBPM, introBars);
@@ -1472,6 +1475,7 @@
     }
 
     function completeFood() {
+      clearBeats(dom.userBeatTrack);
       game.phase = 'foodComplete';
       game.phaseStartTime = performance.now();
       game.phaseDuration = FOOD_COMPLETE_DELAY;
